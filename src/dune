@@ -1,0 +1,5 @@
+(executable
+ (name main)
+ (public_name order_book_app)
+ (modules main)
+ (libraries order_book_lib))

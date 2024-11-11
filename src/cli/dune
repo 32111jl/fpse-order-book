@@ -1,0 +1,5 @@
+(library
+ (name cli)
+ (public_name order_book_cli)
+ (modules cli)
+ (libraries order_book_lib))
