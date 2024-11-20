@@ -1,6 +1,6 @@
 (library
- (name order_book_lib)
- (public_name order_book_lib)
+ (name order_book)
+ (public_name fpse-order-book.order_book)
  (modules order order_book matching_engine market_conditions)
  (libraries core unix)
  (inline_tests))

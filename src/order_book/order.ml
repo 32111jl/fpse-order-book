@@ -31,7 +31,7 @@ let create_order (security : string) (order_type : order_type) (price : float) (
   { id; security; order_type; price; qty; timestamp; user_id = 0 }
 
 
-let is_expired (order : order) (curr_time : float) : (bool : bool) = 
+let is_expired (order : order) (curr_time : float) : bool = 
   match order.order_type with
-  | Limit { expiration = Some exp } -> curr_time >= exp
+  | Limit { price = _; expiration = Some exp } -> curr_time >= exp
   | _ -> false
