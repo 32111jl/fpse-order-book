@@ -2,10 +2,13 @@ open Order
 open Order_book
 open Market_conditions
 
-let check_spread (order_book : Order_book.order_book) (market_conditions : Market_conditions.t) : bool =
-  let best_bid = Order_book.get_best_bid order_book in
-  let best_ask = Order_book.get_best_ask order_book in
-  Market_conditions.check_spread_conditions market_conditions best_bid best_ask
+let check_spread (order_book : order_book) (market_conditions : Market_conditions.t) : bool =
+  let best_bid = get_best_bid order_book in
+  let best_ask = get_best_ask order_book in
+  match best_bid, best_ask with
+  | Some best_bid, Some best_ask -> 
+    check_spread_conditions market_conditions best_bid.price best_ask.price
+  | _ -> false
 
 let execute_trade (buy_order : Order.order) (sell_order : Order.order) : (Order.order * Order.order) option =
   if buy_order.qty > sell_order.qty then
@@ -41,3 +44,12 @@ let match_orders (order_book : order_book) (market_conditions : Market_condition
     else matched_orders
   in
   match_aux []
+
+let match_all_books (books : order_book list) (market_conditions : Market_conditions.t) : (Order.order * Order.order) list =
+  let match_for_book book = 
+    if check_spread book market_conditions then
+      match_orders book market_conditions
+    else
+      []
+  in
+  List.fold_left (fun acc book -> acc @ match_for_book book) [] books
