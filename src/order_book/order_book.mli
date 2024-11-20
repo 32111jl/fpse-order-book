@@ -12,8 +12,8 @@ val create_order_book : string -> order_book
 val add_order : order_book -> order -> unit
 (** [add_order order_book order] adds an order to the order book. *)
 
-val remove_order : order_book -> order -> unit
-(** [remove_order order_book order] removes an order from the order book. *)
+val remove_order : order_book -> int -> unit
+(** [remove_order order_book order_id] removes an order with the given ID from the order book. *)
 
 val get_best_bid : order_book -> order option
 (** [get_best_bid order_book] returns the best bid in the order book. *)
@@ -27,8 +27,8 @@ val get_bids : order_book -> order list
 val get_asks : order_book -> order list
 (** [get_asks order_book] returns the asks in the order book. *)
 
-val match_orders : order_book -> market_conditions -> (order * order) list
-(** [match_orders order_book market_conditions] matches buy/sell orders based on price-time priority. *)
+val match_orders : order_book -> market_conditions -> float -> (order * order) list
+(** [match_orders order_book market_conditions curr_time] matches buy/sell orders based on price-time priority and current time. *)
 
-val removed_expired_orders : order_book -> float -> unit
+val remove_expired_orders : order_book -> float -> unit
 (** [remove_expired_orders order_book curr_time] removes all expired orders from the order book given the current time. *)

@@ -2,5 +2,5 @@
  (name order_book_lib)
  (public_name order_book_lib)
  (modules order order_book matching_engine market_conditions)
- (libraries core)
+ (libraries core unix)
  (inline_tests))
