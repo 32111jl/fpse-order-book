@@ -3,6 +3,9 @@
 val run_cli : unit -> unit
 (** [run_cli ()] starts the CLI interface for user interaction. *)
 
+val set_user_id : unit -> unit
+(** [set_user_id ()] sets the user ID for the current session. *)
+
 val place_order : unit -> unit
 (** [place_order ()] submits the order to the matching engine. *)
 
