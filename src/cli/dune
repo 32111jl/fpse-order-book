@@ -1,5 +1,5 @@
 (library
- (name cli)
- (public_name fpse-order-book.cli)
+ (name cli_lib)
+ (public_name fpse-order-book.cli_lib)
  (modules cli)
  (libraries fpse-order-book.order_book_lib))

@@ -1,9 +1,6 @@
-
-(** CLI interface for user interaction *)
-
-open Order
-open Order_book
-open Market_conditions
+open Order_book_lib.Order
+open Order_book_lib.Order_book
+open Order_book_lib.Market_conditions
 open Unix
 
 let order_books = Hashtbl.create 16
@@ -13,6 +10,7 @@ let curr_user_id = ref None
 
 let get_user_balance user_id = 
   try Hashtbl.find user_balances user_id with _ -> 0.0
+
 let update_user_balance user_id amount = 
   let current_balance = get_user_balance user_id in
   Hashtbl.replace user_balances user_id (current_balance +. amount)
@@ -51,20 +49,36 @@ let place_order () =
         Printf.printf "Enter the price: ";
         let price = float_of_string (read_line ()) in
         Margin price
-      | _ -> Printf.printf "Invalid order type. Currently, you may only choose one of Market, Limit, or Margin.\n"
+      | _ -> failwith "Invalid order type. Currently, you may only choose one of Market, Limit, or Margin.\n"
     in
     Printf.printf "Enter the quantity: ";
     let qty = float_of_string (read_line ()) in
-    let order = create_order security order_type qty user_id in
-    let order_book = Hashtbl.find_or_add order_books security (fun () -> create_order_book security) in
-    add_order order_book order;
-    Printf.printf "Order placed!\n"
+    let total_cost = 
+      match order_type with
+      | Market | Limit _ -> qty
+      | Margin price -> price *. 0.5
+    in
+    let curr_balanace = get_user_balance user_id in
+    if total_cost > curr_balanace then
+      Printf.printf "Insufficient funds. Please deposit more money.\n"
+    else
+      let order = create_order security order_type qty user_id in
+      let order_book = 
+        try Hashtbl.find order_books security
+        with Not_found ->
+          let new_order_book = create_order_book security in
+          Hashtbl.add order_books security new_order_book;
+          new_order_book
+      in
+      add_order order_book order;
+      update_user_balance user_id (-. total_cost);
+      Printf.printf "Order placed!\n"
 
 
 let cancel_order () = 
   match !curr_user_id with
   | None -> Printf.printf "Please set your user ID first.\n"
-  | Some user_id ->
+  | Some _ ->
     Printf.printf "Enter the order ID to cancel: ";
     let order_id = int_of_string (read_line ()) in
     let order_book = Hashtbl.find order_books "AAPL" in
@@ -73,15 +87,29 @@ let cancel_order () =
 
 
 let view_book () = 
-  Hashtbl.iter (fun security order_book ->
-    Printf.printf "Order book for %s:\n" order_book.security;
-    let bids = get_bids order_book in
-    let asks = get_asks order_book in
-    Printf.printf "Bids:\n";
-    List.iter (fun order -> Printf.printf "ID: %d, Price: &f, Qty: %f\n" order.id order.price order.qty) bids;
-    Printf.printf "Asks:\n";
-    List.iter (fun order -> Printf.printf "ID: %d, Price: &f, Qty: %f\n" order.id order.price order.qty) asks;
-  ) order_books
+  Printf.printf "Enter the security you want to view, or 'ALL' to view all securities: ";
+  let input = read_line () in
+  if input = "ALL" then
+    Hashtbl.iter (fun _ order_book ->
+      Printf.printf "Order book for %s:\n" order_book.security;
+      let bids = get_bids order_book in
+      let asks = get_asks order_book in
+      Printf.printf "Bids:\n";
+      List.iter (fun order -> Printf.printf "Price: %f, Qty: %f\n" (get_price order) order.qty) bids;
+      Printf.printf "Asks:\n";
+      List.iter (fun order -> Printf.printf "Price: %f, Qty: %f\n" (get_price order) order.qty) asks
+    ) order_books
+    else
+      match Hashtbl.find_opt order_books input with
+      | None -> Printf.printf "No order book found for %s.\n" input
+      | Some order_book ->
+        Printf.printf "Order book for %s:\n" order_book.security;
+        let bids = get_bids order_book in
+        let asks = get_asks order_book in
+        Printf.printf "Bids:\n";
+        List.iter (fun order -> Printf.printf "Price: %f, Qty: %f\n" (get_price order) order.qty) bids;
+        Printf.printf "Asks:\n";
+        List.iter (fun order -> Printf.printf "Price: %f, Qty: %f\n" (get_price order) order.qty) asks
 
 
 let view_bal () = 

@@ -7,7 +7,9 @@ let check_spread (order_book : order_book) (market_conditions : Market_condition
   let best_ask = get_best_ask order_book in
   match best_bid, best_ask with
   | Some best_bid, Some best_ask -> 
-    check_spread_conditions market_conditions best_bid.price best_ask.price
+    let bid_price = Order_book.get_price best_bid in
+    let ask_price = Order_book.get_price best_ask in
+    check_spread_conditions market_conditions bid_price ask_price
   | _ -> false
 
 let execute_trade (buy_order : Order.order) (sell_order : Order.order) : (Order.order * Order.order) option =

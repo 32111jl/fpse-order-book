@@ -9,6 +9,9 @@ type order_book = {
 val create_order_book : string -> order_book
 (** [create_order_book security] creates an order book for the specified security. *)
 
+val get_price : Order.order -> float
+(** [get_price order] returns the price of the order. *)
+
 val add_order : order_book -> Order.order -> unit
 (** [add_order order_book order] adds an order to the order book. *)
 
