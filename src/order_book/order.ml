@@ -1,14 +1,17 @@
 
+type buy_sell = Buy | Sell
+
 type order_type = 
-| Market
-| Limit of { price : float; expiration : float option }
-| Margin of float
+  | Market
+  | Limit of { price : float; expiration : float option }
+  | Margin of float
 
 
 type order = {
   id : int;                 (* order ID *)
   security : string;        (* security being traded (ex. "AAPL") *)
   order_type : order_type;  (* type of order (Market, Limit, Margin) *)
+  buy_sell : buy_sell;      (* indicates if order is to buy or sell *)
   qty : float;              (* quantity to buy or sell *)
   timestamp : float;        (* timestamp at which order was placed*)
   user_id : int;            (* ID of the user who placed the order *)
@@ -24,10 +27,10 @@ let generate_order_id () =
   id
 
 
-let create_order (security : string) (order_type : order_type) (qty : float) (user_id : int) : order = 
+let create_order (security : string) (order_type : order_type) (buy_sell : buy_sell) (qty : float) (user_id : int) : order = 
   let id = generate_order_id () in
   let timestamp = Unix.time () in
-  { id; security; order_type; qty; timestamp; user_id }
+  { id; security; order_type; buy_sell; qty; timestamp; user_id }
 
 
 let is_expired (order : order) (curr_time : float) : bool = 

@@ -15,5 +15,8 @@ val cancel_order : unit -> unit
 val view_book : unit -> unit
 (** [view_book ()] displays the current state of the order book. *)
 
+val view_my_orders : unit -> unit
+(** [view_my_orders ()] displays the current orders of the user. *)
+
 val view_bal : unit -> unit
 (** [view_bal ()] displays the current balance of the user. *)

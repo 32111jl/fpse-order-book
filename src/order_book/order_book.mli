@@ -30,7 +30,7 @@ val get_bids : order_book -> Order.order list
 val get_asks : order_book -> Order.order list
 (** [get_asks order_book] returns the asks in the order book. *)
 
-val match_orders : order_book -> Market_conditions.t -> float -> (Order.order * Order.order) list
+val match_orders : order_book -> Market_conditions.t -> float -> (Order.order * Order.order * float) list
 (** [match_orders order_book market_conditions curr_time] matches buy/sell orders based on price-time priority and current time. *)
 
 val remove_expired_orders : order_book -> float -> unit

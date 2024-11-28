@@ -20,8 +20,11 @@ let get_price (order : Order.order) : float =
   | Margin price -> price
 
 let add_order (order_book : order_book) (order : Order.order) = 
+  let table = match order.buy_sell with
+  | Buy -> order_book.bids
+  | Sell -> order_book.asks
+  in
   let price = get_price order in
-  let table = if price > 0.0 then order_book.bids else order_book.asks in
   match Hashtbl.find_opt table price with
   | None -> 
     let q = Queue.create () in
@@ -84,8 +87,12 @@ let match_orders (order_book : order_book) (market_conditions : Market_condition
       let bid_price = get_price bid in
       let ask_price = get_price ask in
       if bid_price >= ask_price && Market_conditions.check_spread_conditions market_conditions bid_price ask_price then
-        let matched_order = (bid, ask) in
-        match_aux rest_bids rest_asks (matched_order :: acc)
+        let trade_qty = Float.min bid.qty ask.qty in
+        let updated_bid = { bid with qty = bid.qty -. trade_qty } in
+        let updated_ask = { ask with qty = ask.qty -. trade_qty } in
+        let rest_bids = if updated_bid.qty > 0.0 then updated_bid :: rest_bids else rest_bids in
+        let rest_asks = if updated_ask.qty > 0.0 then updated_ask :: rest_asks else rest_asks in
+        match_aux rest_bids rest_asks ((bid, ask, trade_qty ) :: acc)
       else
         acc
   in
