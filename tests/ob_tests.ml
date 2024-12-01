@@ -58,7 +58,24 @@ module OBTests = struct
     assert_equal (get_price (List.hd_exn bids)) 150.0;
     assert_equal (get_price (List.hd_exn asks)) 155.0
 
-  let test_add_order _ =
+  let test_add_partial_fill_market_order _ =
+    let book = create_order_book "AAPL" in
+    let sell_order = create_order (generate_order_id book) "AAPL" (Limit { price = 150.0; expiration = None }) Sell 10.0 1 in
+    add_order book sell_order;
+    let order = create_order (generate_order_id book) "AAPL" Market Buy 5.0 2 in
+    add_order book order;
+    let asks = get_asks book in
+    assert_equal (List.length asks) 1;
+    assert_equal (List.hd_exn asks).qty 5.0;
+    let bids = get_bids book in
+    assert_equal (List.length bids) 0
+
+  let test_add_insufficient_market_order _ =
+    let book = create_order_book "AAPL" in
+    let order = create_order (generate_order_id book) "AAPL" Market Buy 10.0 2 in
+    assert_raises (Failure "Not enough liquidity for market order.") (fun () -> add_order book order)
+
+  let test_add_limit_order _ =
     let book = create_order_book "AAPL" in
     let order = create_order (generate_order_id book) "AAPL" (Limit { price = 150.0; expiration = None }) Buy 10.0 1 in
     add_order book order;
@@ -67,7 +84,31 @@ module OBTests = struct
     assert_equal (get_price (List.hd_exn bids)) 150.0;
     assert_equal (List.hd_exn bids).qty 10.0
 
-  let test_remove_order _ =
+  (* let test_add_margin_order _ =
+    let book = create_order_book "AAPL" in
+    let user_id = 1 in
+    update_user_balance user_id 100.0;
+    let order = create_order (generate_order_id book) "AAPL" (Margin 50.0) Buy 2.0 user_id in
+    add_order book order;
+    let bids = get_bids book in
+    assert_equal (List.length bids) 1;
+    assert_equal (get_price (List.hd_exn bids)) 50.0;
+    assert_equal (List.hd_exn bids).qty 2.0
+    assert_equal (get_user_balance user_id) 75.0 *)
+
+  let test_remove_market_order _ = 
+    let book = create_order_book "AAPL" in
+    let order = create_order (generate_order_id book) "AAPL" Market Sell 10.0 1 in
+    assert_raises (Failure "Not enough liquidity for market order.") (fun () -> add_order book order)
+
+  (* let test_margin_insufficient_bal _ =
+    let book = create_order_book "AAPL" in
+    let user_id = 1 in
+    update_user_balance user_id 10.0;
+    let order = create_order (generate_order_id book) "AAPL" (Margin 50.0) Buy 2.0 user_id in
+    assert_raises (Failure "Insufficient funds. Please deposit more money.") (fun () -> add_order book order) *)
+
+  let test_remove_limit_order _ =
     let book = create_order_book "AAPL" in
     let order1 = create_order (generate_order_id book) "AAPL" (Limit { price = 150.0; expiration = None }) Buy 10.0 1 in
     let order2 = create_order (generate_order_id book) "AAPL" (Limit { price = 155.0; expiration = None }) Buy 10.0 2 in
@@ -109,8 +150,13 @@ module OBTests = struct
   let series = "order_book_tests" >::: [
     "test_create_ob" >:: test_create_ob;
     "test_create_dupe_id" >:: test_create_dupe_id;
-    "test_add_order" >:: test_add_order;
-    "test_remove_order" >:: test_remove_order;
+    "test_add_partial_fill_market_order" >:: test_add_partial_fill_market_order;
+    "test_add_insufficient_market_order" >:: test_add_insufficient_market_order;
+    "test_add_order" >:: test_add_limit_order;
+    (* "test_add_margin_order" >:: test_add_margin_order; *)
+    "test_remove_market_order" >:: test_remove_market_order;
+    (* "test_margin_insufficient_bal" >:: test_margin_insufficient_bal; *)
+    "test_remove_order" >:: test_remove_limit_order;
     "test_best_bid_ask" >:: test_best_bid_ask;
     "test_remove_expired" >:: test_remove_expired
   ]

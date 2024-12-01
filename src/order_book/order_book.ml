@@ -4,6 +4,7 @@ type order_book = {
   security : string;
   bids : (float, Order.order Queue.t) Hashtbl.t;
   asks : (float, Order.order Queue.t) Hashtbl.t;
+  order_ids : (int, unit) Hashtbl.t;
   mutable order_counter : int;
 }
 
@@ -13,6 +14,7 @@ let create_order_book (security : string) =
     security = security;
     bids = Hashtbl.create 128; (* arbitrary? maybe change *)
     asks = Hashtbl.create 128;
+    order_ids = Hashtbl.create 128;
     order_counter = 0;
   }
 
@@ -23,7 +25,7 @@ let generate_order_id (order_book : order_book) =
 
 let get_price (order : Order.order) : float = 
   match order.order_type with
-  | Market -> failwith "Market orders do not have a price."
+  | Market -> failwith "Market orders don't have a price."
   | Limit { price; expiration = _ } -> price
   | Margin price -> price
 
@@ -53,21 +55,50 @@ let get_bids (order_book : order_book) =
 let get_asks (order_book : order_book) = 
   Hashtbl.fold (fun _ queue acc -> acc @ List.of_seq (Queue.to_seq queue)) order_book.asks []
 
-let add_order (order_book : order_book) (order : Order.order) = 
+let match_market_order order_book order = 
   let table = match order.buy_sell with
-  | Buy -> order_book.bids
-  | Sell -> order_book.asks
+  | Buy -> order_book.asks
+  | Sell -> order_book.bids
   in
-  let all_orders = get_bids order_book @ get_asks order_book in
-  if List.exists (fun o -> o.id = order.id) all_orders then
+  let sorted_orders = Hashtbl.fold (fun _ queue acc -> acc @ List.of_seq (Queue.to_seq queue)) table []
+  |> List.sort (fun a b -> 
+    match order.buy_sell with
+    | Buy -> Float.compare (get_price a) (get_price b)
+    | Sell -> Float.compare (get_price b) (get_price a))
+  in
+  let rec execute_order qty_remaining = function
+  | [] -> if qty_remaining > 0.0 then failwith "Not enough liquidity for market order."
+  | order :: rest -> 
+    let trade_qty = Float.min qty_remaining order.qty in
+    order.qty <- order.qty -. trade_qty;
+    if order.qty <= 0.0 then
+      let q = Hashtbl.find table (get_price order) in
+      ignore (Queue.pop q);
+      if Queue.is_empty q then Hashtbl.remove table (get_price order);
+    let qty_remaining = qty_remaining -. trade_qty in
+    if qty_remaining > 0.0 then execute_order qty_remaining rest
+  in
+  execute_order order.qty sorted_orders
+
+let add_order (order_book : order_book) (order : Order.order) = 
+  if Hashtbl.mem order_book.order_ids order.id then
     failwith "duplicate order ID";
-  let price = get_price order in
-  match Hashtbl.find_opt table price with
-  | None -> 
-    let q = Queue.create () in
-    Queue.push order q;
-    Hashtbl.add table price q
-  | Some q -> Queue.push order q
+  Hashtbl.add order_book.order_ids order.id ();
+  match order.order_type with
+  | Market -> 
+    match_market_order order_book order
+  | _ ->
+    let table = match order.buy_sell with
+    | Buy -> order_book.bids
+    | Sell -> order_book.asks
+    in
+    let price = get_price order in
+    match Hashtbl.find_opt table price with
+    | None -> 
+      let q = Queue.create () in
+      Queue.push order q;
+      Hashtbl.add table price q
+    | Some q -> Queue.push order q
 
 let remove_order (order_book : order_book) (order_id : int) = 
   let remove_order_from_table table = 

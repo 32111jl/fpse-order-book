@@ -4,6 +4,7 @@ type order_book = {
   security : string;
   bids : (float, Order.order Queue.t) Hashtbl.t;
   asks : (float, Order.order Queue.t) Hashtbl.t;
+  order_ids : (int, unit) Hashtbl.t;
   mutable order_counter : int;
 }
 
