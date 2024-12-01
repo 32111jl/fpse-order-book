@@ -5,8 +5,8 @@ type t = {
   margin_rate : float;
 }
 
-val create : float -> float -> t
-(** [create bid_ask_spread margin_rate] creates market conditions with the given bid-ask spread and margin rate. *)
+val create_market_conditions : float -> float -> t
+(** [create_market_conditions bid_ask_spread margin_rate] creates market conditions with the given bid-ask spread and margin rate. *)
 
 val check_spread_conditions : t -> float -> float -> bool
 (** [check_spread_conditions market_conditions best_bid best_ask] checks if the spread is within the market conditions. *)

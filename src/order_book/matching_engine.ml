@@ -2,6 +2,14 @@ open Order
 open Order_book
 open Market_conditions
 
+type trade = {
+  buy_order_id : int;
+  sell_order_id : int;
+  trade_qty : float;
+  buy_qty_after : float;
+  sell_qty_after : float;
+}
+
 let get_price_helper (order : Order.order) : float =
   match Order_book.get_price order with
   | None -> failwith "Expected order to have a price."
@@ -17,46 +25,35 @@ let check_spread (order_book : order_book) (market_conditions : Market_condition
     check_spread_conditions market_conditions bid_price ask_price
   | _ -> false
 
-let execute_trade (buy_order : Order.order) (sell_order : Order.order) : (Order.order * Order.order) option =
-  if buy_order.qty > sell_order.qty then
-    let new_buy_order = { buy_order with qty = buy_order.qty -. sell_order.qty } in
-    Some (new_buy_order, sell_order)
-
-  else if buy_order.qty < sell_order.qty then
-    let new_sell_order = { sell_order with qty = sell_order.qty -. buy_order.qty } in
-    Some (buy_order, new_sell_order)
-
-  else
-    Some (buy_order, sell_order)
+let execute_trade (buy_order : Order.order) (sell_order : Order.order) : float =
+  let trade_qty = min buy_order.qty sell_order.qty in
+  buy_order.qty <- buy_order.qty -. trade_qty;
+  sell_order.qty <- sell_order.qty -. trade_qty;
+  trade_qty
 
 
-let match_orders (order_book : order_book) (market_conditions : Market_conditions.t) : (Order.order * Order.order) list =
+let match_orders (order_book : order_book) (market_conditions : Market_conditions.t) : trade list =
   let rec match_aux matched_orders = 
     if check_spread order_book market_conditions then
       match (Order_book.get_best_bid order_book, Order_book.get_best_ask order_book) with
       | Some best_bid, Some best_ask ->
-        begin
-          match execute_trade best_bid best_ask with
-          | Some (buy_order, sell_order) ->
-            if buy_order.qty = 0.0 then Order_book.remove_order order_book best_bid.id;
-            if sell_order.qty = 0.0 then Order_book.remove_order order_book best_ask.id;
-
-            if buy_order.qty > 0.0 then Order_book.add_order order_book buy_order;
-            if sell_order.qty > 0.0 then Order_book.add_order order_book sell_order;
-
-            match_aux ((buy_order, sell_order) :: matched_orders)
-          | None -> matched_orders
-        end
+        let trade_qty = execute_trade best_bid best_ask in
+        let trade = {
+          buy_order_id = best_bid.id;
+          sell_order_id = best_ask.id;
+          trade_qty = trade_qty;
+          buy_qty_after = best_bid.qty;
+          sell_qty_after = best_ask.qty;
+        } in
+        (* add trade to list of matched orders *)
+        if best_bid.qty = 0.0 then Order_book.remove_order order_book best_bid.id;
+        if best_ask.qty = 0.0 then Order_book.remove_order order_book best_ask.id;
+        match_aux (trade :: matched_orders)
+        (* note that trades is reversed *)
       | _ -> matched_orders     (* no bid/ask to match *)
     else matched_orders
   in
   match_aux []
 
-let match_all_books (books : order_book list) (market_conditions : Market_conditions.t) : (Order.order * Order.order) list =
-  let match_for_book book = 
-    if check_spread book market_conditions then
-      match_orders book market_conditions
-    else
-      []
-  in
-  List.fold_left (fun acc book -> acc @ match_for_book book) [] books
+let match_all_books (books : order_book list) (market_conditions : Market_conditions.t) : trade list =
+  List.fold_left (fun acc book -> acc @ match_orders book market_conditions) [] books
