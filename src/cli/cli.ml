@@ -2,8 +2,8 @@ open Order_book_lib.Order
 open Order_book_lib.Order_book
 open Unix
 
-let order_books = Hashtbl.create 16
-let user_balances = Hashtbl.create 16
+let order_books : (string, order_book) Hashtbl.t = Hashtbl.create 16
+let user_balances : (int, float) Hashtbl.t = Hashtbl.create 16
 
 let curr_user_id = ref None
 
@@ -28,6 +28,10 @@ let set_user_id () =
   let user_id = int_of_string (read_line ()) in
   curr_user_id := Some user_id
 
+let get_price_helper order = 
+  match get_price order with
+  | None -> failwith "Expected order to have a price."
+  | Some price -> price
 
 let place_order () = 
   match !curr_user_id with
@@ -89,9 +93,18 @@ let cancel_order () =
   | Some _ ->
     Printf.printf "Enter the order ID to cancel: ";
     let order_id = int_of_string (read_line ()) in
-    let order_book = Hashtbl.find order_books "AAPL" in
-    remove_order order_book order_id;
-    Printf.printf "Order cancelled.\n"
+    let order_book_opt = 
+      Hashtbl.fold (fun _ order_book acc ->
+        if acc <> None then acc
+        else if check_order_exists order_book order_id then Some order_book
+        else None
+      ) order_books None
+    in
+    match order_book_opt with
+    | None -> Printf.printf "Order with ID %d not found.\n" order_id
+    | Some order_book ->
+      remove_order order_book order_id;
+      Printf.printf "Order cancelled.\n"
 
 
 let view_book () = 
@@ -99,25 +112,25 @@ let view_book () =
   let input = read_line () in
   if input = "ALL" then
     Hashtbl.iter (fun _ order_book ->
-      Printf.printf "Order book for %s:\n" order_book.security;
+      Printf.printf "Order book for %s:\n" (get_security order_book);
       let bids = get_bids order_book in
       let asks = get_asks order_book in
       Printf.printf "Bids:\n";
-      List.iter (fun order -> Printf.printf "Price: %f, Qty: %f\n" (get_price order) order.qty) bids;
+      List.iter (fun order -> Printf.printf "Price: %f, Qty: %f\n" (get_price_helper order) order.qty) bids;
       Printf.printf "Asks:\n";
-      List.iter (fun order -> Printf.printf "Price: %f, Qty: %f\n" (get_price order) order.qty) asks
+      List.iter (fun order -> Printf.printf "Price: %f, Qty: %f\n" (get_price_helper order) order.qty) asks
     ) order_books
     else
       match Hashtbl.find_opt order_books input with
       | None -> Printf.printf "No order book found for %s.\n" input
       | Some order_book ->
-        Printf.printf "Order book for %s:\n" order_book.security;
+        Printf.printf "Order book for %s:\n" (get_security order_book);
         let bids = get_bids order_book in
         let asks = get_asks order_book in
         Printf.printf "Bids:\n";
-        List.iter (fun order -> Printf.printf "Price: %f, Qty: %f\n" (get_price order) order.qty) bids;
+        List.iter (fun order -> Printf.printf "Price: %f, Qty: %f\n" (get_price_helper order) order.qty) bids;
         Printf.printf "Asks:\n";
-        List.iter (fun order -> Printf.printf "Price: %f, Qty: %f\n" (get_price order) order.qty) asks
+        List.iter (fun order -> Printf.printf "Price: %f, Qty: %f\n" (get_price_helper order) order.qty) asks
 
 let view_my_orders () = 
   match !curr_user_id with
@@ -130,7 +143,7 @@ let view_my_orders () =
           (get_bids order_book @ get_asks order_book) 
       in
       if orders <> [] then 
-        Printf.printf "Orders in %s:\n" order_book.security;
+        Printf.printf "Orders in %s:\n" (get_security order_book);
       List.iter (fun order -> 
         Printf.printf "ID: %d, Type: %s, Price: %f, Qty: %f\n" 
           order.id 
@@ -138,7 +151,7 @@ let view_my_orders () =
             | Market -> "Market"
             | Limit _ -> "Limit"
             | Margin _ -> "Margin")
-          (get_price order) 
+          (get_price_helper order) 
           order.qty
       ) orders
     ) order_books

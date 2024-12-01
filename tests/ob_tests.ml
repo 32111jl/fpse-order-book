@@ -35,9 +35,15 @@ module OrderTests = struct
 end
 
 module OBTests = struct
+
+  let get_price_helper order = 
+    match get_price order with
+    | None -> assert_failure "Expected order to have a price."
+    | Some price -> price
+
   let test_create_ob _ = 
     let book = create_order_book "AAPL" in
-    assert_equal "AAPL" book.security;
+    assert_equal "AAPL" (get_security book);
     let bids = get_bids book in
     let asks = get_asks book in
     assert_equal (List.length bids) 0;
@@ -55,8 +61,8 @@ module OBTests = struct
     let asks = get_asks book in
     assert_equal (List.length bids) 1;
     assert_equal (List.length asks) 1;
-    assert_equal (get_price (List.hd_exn bids)) 150.0;
-    assert_equal (get_price (List.hd_exn asks)) 155.0
+    assert_equal (get_price_helper (List.hd_exn bids)) 150.0;
+    assert_equal (get_price_helper (List.hd_exn asks)) 155.0
 
   let test_add_partial_fill_market_order _ =
     let book = create_order_book "AAPL" in
@@ -81,7 +87,7 @@ module OBTests = struct
     add_order book order;
     let bids = get_bids book in
     assert_equal (List.length bids) 1;
-    assert_equal (get_price (List.hd_exn bids)) 150.0;
+    assert_equal (get_price_helper (List.hd_exn bids)) 150.0;
     assert_equal (List.hd_exn bids).qty 10.0
 
   (* let test_add_margin_order _ =
@@ -119,7 +125,7 @@ module OBTests = struct
     remove_order book 0; (* first order has ID of 0 *)
     let new_bids = get_bids book in
     assert_equal (List.length new_bids) 1;
-    assert_equal (get_price (List.hd_exn new_bids)) 155.0
+    assert_equal (get_price_helper (List.hd_exn new_bids)) 155.0
 
   let test_best_bid_ask _ =
     let book = create_order_book "AAPL" in
@@ -129,8 +135,8 @@ module OBTests = struct
     add_order book order2;
     let best_bid = get_best_bid book in
     let best_ask = get_best_ask book in
-    assert_equal (get_price (Option.value_exn best_bid)) 150.0;
-    assert_equal (get_price (Option.value_exn best_ask)) 155.0
+    assert_equal (get_price_helper (Option.value_exn best_bid)) 150.0;
+    assert_equal (get_price_helper (Option.value_exn best_ask)) 155.0
 
   let test_remove_expired _ = 
     let book = create_order_book "AAPL" in
@@ -143,7 +149,7 @@ module OBTests = struct
     remove_expired_orders book 1.0;
     let bids = get_bids book in
     assert_equal (List.length bids) 1;
-    assert_equal (get_price (List.hd_exn bids)) 155.0;
+    assert_equal (get_price_helper (List.hd_exn bids)) 155.0;
     assert_equal (List.length (get_asks book)) 0
 
 

@@ -2,13 +2,18 @@ open Order
 open Order_book
 open Market_conditions
 
+let get_price_helper (order : Order.order) : float =
+  match Order_book.get_price order with
+  | None -> failwith "Expected order to have a price."
+  | Some price -> price
+
 let check_spread (order_book : order_book) (market_conditions : Market_conditions.t) : bool =
   let best_bid = get_best_bid order_book in
   let best_ask = get_best_ask order_book in
   match best_bid, best_ask with
   | Some best_bid, Some best_ask -> 
-    let bid_price = Order_book.get_price best_bid in
-    let ask_price = Order_book.get_price best_ask in
+    let bid_price = get_price_helper best_bid in
+    let ask_price = get_price_helper best_ask in
     check_spread_conditions market_conditions bid_price ask_price
   | _ -> false
 
