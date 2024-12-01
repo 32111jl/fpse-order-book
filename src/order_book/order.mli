@@ -18,7 +18,7 @@ type order = {
 }
 
 
-val create_order : string -> order_type -> buy_sell -> float -> int -> order
+val create_order : int -> string -> order_type -> buy_sell -> float -> int -> order
 (** [create_order security o_type buy_sell qty user_id] creates an order with the given type, quantity, and user_id. *)
 
 val is_expired : order -> float -> bool

@@ -46,13 +46,13 @@ let place_order () =
     Printf.printf "Enter the order type (Market/Limit/Margin): ";
     let order_type_str = read_line () in
     let order_type =
-      match order_type_str with
-      | "Market" -> Market
-      | "Limit" ->
+      match String.lowercase_ascii order_type_str with
+      | "market" -> Market
+      | "limit" ->
         Printf.printf "Enter the price: ";
         let curr_price = float_of_string (read_line ()) in
         Limit { price = curr_price; expiration = Some (current_time () +. 3600.0) }
-      | "Margin" ->
+      | "margin" ->
         Printf.printf "Enter the price: ";
         let curr_price = float_of_string (read_line ()) in
         Margin curr_price
@@ -69,7 +69,6 @@ let place_order () =
     if buy_sell = Buy && total_cost > curr_balance then
       Printf.printf "Insufficient funds. Please deposit more money.\n"
     else
-      let order = create_order security order_type buy_sell qty user_id in
       let order_book = 
         try Hashtbl.find order_books security
         with Not_found ->
@@ -77,6 +76,8 @@ let place_order () =
           Hashtbl.add order_books security new_order_book;
           new_order_book
       in
+      let order_id = generate_order_id order_book in
+      let order = create_order order_id security order_type buy_sell qty user_id in
       add_order order_book order;
       if buy_sell = Buy then update_user_balance user_id (-. total_cost);
       Printf.printf "Order with ID %d placed!\n" order.id

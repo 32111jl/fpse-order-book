@@ -1,4 +1,4 @@
 (test
- (name order_book_test)
- (modules order_book_test)
- (libraries fpse-order-book.order_book_lib core ounit2))
+ (name ob_tests)
+ (modules ob_tests)
+ (libraries fpse-order-book.order_book_lib core ounit2 core_unix))

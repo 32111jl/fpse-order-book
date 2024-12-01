@@ -13,22 +13,12 @@ type order = {
   order_type : order_type;  (* type of order (Market, Limit, Margin) *)
   buy_sell : buy_sell;      (* indicates if order is to buy or sell *)
   qty : float;              (* quantity to buy or sell *)
-  timestamp : float;        (* timestamp at which order was placed*)
+  timestamp : float;        (* timestamp at which order was placed *)
   user_id : int;            (* ID of the user who placed the order *)
 }
 
 
-let order_counter = ref 0
-
-
-let generate_order_id () = 
-  let id = !order_counter in 
-  order_counter := id + 1;
-  id
-
-
-let create_order (security : string) (order_type : order_type) (buy_sell : buy_sell) (qty : float) (user_id : int) : order = 
-  let id = generate_order_id () in
+let create_order (id : int) (security : string) (order_type : order_type) (buy_sell : buy_sell) (qty : float) (user_id : int) : order = 
   let timestamp = Unix.time () in
   { id; security; order_type; buy_sell; qty; timestamp; user_id }
 
