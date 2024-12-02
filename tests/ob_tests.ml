@@ -71,6 +71,7 @@ module OBTests = struct
     assert_raises (Failure "duplicate order ID") (fun () -> add_order book dupe_order);
     let bids = get_bids book in
     let asks = get_asks book in
+    (* should be one bid and one ask, dupe didn't count *)
     assert_equal (List.length bids) 1;
     assert_equal (List.length asks) 1;
     assert_equal (get_price_helper (List.hd_exn bids)) 150.0;
@@ -85,6 +86,7 @@ module OBTests = struct
     let asks = get_asks book in
     assert_equal (List.length asks) 1;
     assert_equal (List.hd_exn asks).qty 5.0;
+    (* should be zero bids *)
     let bids = get_bids book in
     assert_equal (List.length bids) 0
 
@@ -95,12 +97,34 @@ module OBTests = struct
 
   let test_add_limit_order _ =
     let book = create_order_book "AAPL" in
-    let order = create_order (generate_order_id book) "AAPL" (Limit { price = 150.0; expiration = None }) Buy 10.0 1 in
-    add_order book order;
+    
+    (* test buy side *)
+    let buy_order = create_order (generate_order_id book) "AAPL" (Limit { price = 150.0; expiration = None }) Buy 10.0 1 in
+    add_order book buy_order;
     let bids = get_bids book in
     assert_equal (List.length bids) 1;
     assert_equal (get_price_helper (List.hd_exn bids)) 150.0;
-    assert_equal (List.hd_exn bids).qty 10.0
+    assert_equal (List.hd_exn bids).qty 10.0;
+    
+    (* test sell side *)
+    let sell_order1 = create_order (generate_order_id book) "AAPL" (Limit { price = 155.0; expiration = None }) Sell 5.0 2 in
+    add_order book sell_order1;
+    assert_equal (get_best_ask book) (Some 155.0);
+    
+    (* sell side, better price updates best ask *)
+    let sell_order2 = create_order (generate_order_id book) "AAPL" (Limit { price = 153.0; expiration = None }) Sell 7.0 3 in
+    add_order book sell_order2;
+    assert_equal (get_best_ask book) (Some 153.0);
+    
+    (* sell side, worse price doesn't update best ask *)
+    let sell_order3 = create_order (generate_order_id book) "AAPL" (Limit { price = 156.0; expiration = None }) Sell 3.0 4 in
+    add_order book sell_order3;
+    assert_equal (get_best_ask book) (Some 153.0);
+    
+    (* check that the asks are in the correct order *)
+    let asks = get_asks book in
+    assert_equal (List.length asks) 3;
+    assert_equal (get_price_helper (List.hd_exn asks)) 153.0
 
   let test_add_margin_order _ =
     let book = create_order_book "AAPL" in
@@ -129,17 +153,31 @@ module OBTests = struct
     let book = create_order_book "AAPL" in
     let order1 = create_order (generate_order_id book) "AAPL" (Limit { price = 150.0; expiration = None }) Buy 10.0 1 in
     let order2 = create_order (generate_order_id book) "AAPL" (Limit { price = 155.0; expiration = None }) Buy 10.0 2 in
-    add_order book order1; (* id = 0 *)
-    add_order book order2; (* id = 1 *)
+    let order3 = create_order (generate_order_id book) "AAPL" (Limit { price = 150.0; expiration = None }) Buy 5.0 3 in
+    add_order book order1;
+    add_order book order2;
+    add_order book order3;
+    remove_order book 999;  (* should do nothing *)
+    
     let curr_bids = get_bids book in
-    assert_equal (List.length curr_bids) 2;
-    remove_order book 0; (* first order has ID of 0 *)
+    assert_equal (List.length curr_bids) 3;
+    
+    remove_order book 0;
     let new_bids = get_bids book in
-    assert_equal (List.length new_bids) 1;
-    assert_equal (get_price_helper (List.hd_exn new_bids)) 155.0
+    assert_equal (List.length new_bids) 2;
+    
+    remove_order book 2;
+    let final_bids = get_bids book in
+    assert_equal (List.length final_bids) 1;
+    assert_equal (get_price_helper (List.hd_exn final_bids)) 155.0;
+    
+    let non_existent_order = create_order 999 "AAPL" (Limit { price = 160.0; expiration = None }) Buy 10.0 1 in
+    remove_order book non_existent_order.id
 
   let test_best_bid_ask _ =
     let book = create_order_book "AAPL" in
+    assert_equal (get_best_bid book) None;
+    assert_equal (get_best_ask book) None;
     let order1 = create_order (generate_order_id book) "AAPL" (Limit { price = 150.0; expiration = None }) Buy 10.0 1 in
     let order2 = create_order (generate_order_id book) "AAPL" (Limit { price = 155.0; expiration = None }) Sell 5.0 2 in
     add_order book order1;
@@ -148,6 +186,16 @@ module OBTests = struct
     let best_ask = get_best_ask book in
     assert_equal best_bid (Some 150.0);
     assert_equal best_ask (Some 155.0)
+  
+  let test_get_best_ask_some _ =
+    let book = create_order_book "AAPL" in
+    let sell_order = create_order (generate_order_id book) "AAPL" 
+      (Limit { price = 150.0; expiration = None }) Sell 10.0 1 in
+    add_order book sell_order;
+    let first_ask = get_best_ask book in
+    assert_equal first_ask (Some 150.0);
+    let second_ask = get_best_ask book in
+    assert_equal second_ask (Some 150.0)
 
   let test_remove_expired _ = 
     let book = create_order_book "AAPL" in
@@ -176,6 +224,32 @@ module OBTests = struct
     assert_equal (List.hd_exn bids).qty 10.0;
     assert_equal (List.hd_exn asks).qty 5.0
 
+  let test_match_market_order_recursive _ =
+    let book = create_order_book "AAPL" in
+    let sell_order = create_order (generate_order_id book) "AAPL" (Limit { price = 150.0; expiration = None }) Sell 5.0 1 in
+    add_order book sell_order;
+    let buy_order = create_order (generate_order_id book) "AAPL" Market Buy 10.0 2 in
+    assert_raises (Failure "Not enough liquidity for market order.") 
+      (fun () -> add_order book buy_order);
+    let asks = get_asks book in
+    assert_equal (List.length asks) 0
+
+  let test_check_order_exists _ =
+    let book = create_order_book "AAPL" in
+    let order1 = create_order (generate_order_id book) "AAPL" (Limit { price = 150.0; expiration = None }) Buy 10.0 1 in
+    let order2 = create_order (generate_order_id book) "AAPL" (Limit { price = 155.0; expiration = None }) Buy 10.0 2 in
+    
+    assert_equal (check_order_exists book 999) false; (* non-existent order *)
+    
+    add_order book order1;
+    add_order book order2;
+    assert_equal (check_order_exists book order1.id) true;
+    assert_equal (check_order_exists book order2.id) true;
+    
+    remove_order book order1.id;
+    assert_equal (check_order_exists book order1.id) false;
+    assert_equal (check_order_exists book order2.id) true
+
   let series = "order_book_tests" >::: [
     "test_create_ob" >:: test_create_ob;
     "test_create_dupe_id" >:: test_create_dupe_id;
@@ -187,14 +261,23 @@ module OBTests = struct
     "test_margin_insufficient_bal" >:: test_margin_insufficient_bal;
     "test_remove_order" >:: test_remove_limit_order;
     "test_best_bid_ask" >:: test_best_bid_ask;
+    "test_get_best_ask_some" >:: test_get_best_ask_some;
     "test_remove_expired" >:: test_remove_expired;
-    "test_order_book_state" >:: test_order_book_state
+    "test_order_book_state" >:: test_order_book_state;
+    "test_match_market_order_recursive" >:: test_match_market_order_recursive;
+    "test_check_order_exists" >:: test_check_order_exists
   ]
 end
 
 module MatchingEngineTests = struct
   let create_market_conds ba_spread margin_rate = 
     create_market_conditions ba_spread margin_rate
+
+  let test_get_margin_rate _ =
+    let market_conds = create_market_conds 3.0 0.5 in
+    assert_equal (get_margin_rate market_conds) 0.5;
+    let market_conds2 = create_market_conds 2.0 0.75 in
+    assert_equal (get_margin_rate market_conds2) 0.75
 
   let test_check_spread _ = 
     let book = create_order_book "AAPL" in
@@ -270,12 +353,13 @@ module MatchingEngineTests = struct
     assert_equal (List.length trades) 0
 
   let series = "matching_engine_tests" >::: [
-      "test_check_spread" >:: test_check_spread;
-      "test_execute_trade" >:: test_execute_trade;
-      "test_match_orders" >:: test_match_orders;
-      "test_match_multiple_books" >:: test_match_multiple_books;
-      "test_no_matching_orders" >:: test_no_matching_orders
-    ]
+    "test_check_spread" >:: test_check_spread;
+    "test_execute_trade" >:: test_execute_trade;
+    "test_match_orders" >:: test_match_orders;
+    "test_match_multiple_books" >:: test_match_multiple_books;
+    "test_no_matching_orders" >:: test_no_matching_orders;
+    "test_get_margin_rate" >:: test_get_margin_rate
+  ]
 end
 
 (* module QuickCheckTests = struct

@@ -10,4 +10,5 @@
    (depends
     (ounit2 (>= 2.2.7)) ; for each opam dependency list the version
     (core (>= 0.17.1)) ; `opam list core` will display which version of core you have
+    (bisect_ppx (>= 2.8.3)) ; for code coverage analysis
  ))

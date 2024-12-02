@@ -159,31 +159,6 @@ let remove_order (order_book : order_book) (order_id : int) =
             set_table (PriceMap.add price remaining_orders table);
           Hashtbl.remove order_book.order_ids order_id
 
-let match_orders (order_book : order_book) (market_conditions : Market_conditions.t) (curr_time : float) = 
-  let bids = List.filter (fun order -> not (is_expired order curr_time)) (get_bids order_book) in
-  let asks = List.filter (fun order -> not (is_expired order curr_time)) (get_asks order_book) in
-  
-  let sorted_bids = List.sort (fun a b -> Float.compare (get_price_helper b) (get_price_helper a)) bids in
-  let sorted_asks = List.sort (fun a b -> Float.compare (get_price_helper a) (get_price_helper b)) asks in
-  
-  let rec match_aux sorted_bids sorted_asks acc = 
-    match sorted_bids, sorted_asks with
-    | [], _ | _, [] -> acc
-    | bid :: rest_bids, ask :: rest_asks -> 
-        let bid_price = get_price_helper bid in
-        let ask_price = get_price_helper ask in
-        if bid_price >= ask_price && Market_conditions.check_spread_conditions market_conditions bid_price ask_price then
-          let trade_qty = Float.min bid.qty ask.qty in
-          let updated_bid = { bid with qty = bid.qty -. trade_qty } in
-          let updated_ask = { ask with qty = ask.qty -. trade_qty } in
-          let rest_bids = if updated_bid.qty > 0.0 then updated_bid :: rest_bids else rest_bids in
-          let rest_asks = if updated_ask.qty > 0.0 then updated_ask :: rest_asks else rest_asks in
-          match_aux rest_bids rest_asks ((bid, ask, trade_qty) :: acc)
-        else
-          acc
-  in
-  match_aux sorted_bids sorted_asks []
-
 let remove_expired_orders (order_book : order_book) (curr_time : float) = 
   let remove_expired_from_table table =
     PriceMap.filter_map (fun _ q ->

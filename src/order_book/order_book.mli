@@ -32,9 +32,6 @@ val add_order : order_book -> Order.order -> unit
 val remove_order : order_book -> int -> unit
 (** [remove_order order_book order_id] removes an order with the given ID from the order book. *)
 
-val match_orders : order_book -> Market_conditions.t -> float -> (Order.order * Order.order * float) list
-(** [match_orders order_book market_conditions curr_time] matches buy/sell orders based on price-time priority and current time. *)
-
 val remove_expired_orders : order_book -> float -> unit
 (** [remove_expired_orders order_book curr_time] removes all expired orders from the order book given the current time. *)
 
