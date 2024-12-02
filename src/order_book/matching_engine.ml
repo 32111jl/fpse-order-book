@@ -10,19 +10,11 @@ type trade = {
   sell_qty_after : float;
 }
 
-let get_price_helper (order : Order.order) : float =
-  match Order_book.get_price order with
-  | None -> failwith "Expected order to have a price."
-  | Some price -> price
-
 let check_spread (order_book : order_book) (market_conditions : Market_conditions.t) : bool =
   let best_bid = get_best_bid order_book in
   let best_ask = get_best_ask order_book in
   match best_bid, best_ask with
-  | Some best_bid, Some best_ask -> 
-    let bid_price = get_price_helper best_bid in
-    let ask_price = get_price_helper best_ask in
-    check_spread_conditions market_conditions bid_price ask_price
+  | Some best_bid, Some best_ask -> check_spread_conditions market_conditions best_bid best_ask
   | _ -> false
 
 let execute_trade (buy_order : Order.order) (sell_order : Order.order) : float =
@@ -31,12 +23,13 @@ let execute_trade (buy_order : Order.order) (sell_order : Order.order) : float =
   sell_order.qty <- sell_order.qty -. trade_qty;
   trade_qty
 
-
 let match_orders (order_book : order_book) (market_conditions : Market_conditions.t) : trade list =
   let rec match_aux matched_orders = 
     if check_spread order_book market_conditions then
-      match (Order_book.get_best_bid order_book, Order_book.get_best_ask order_book) with
-      | Some best_bid, Some best_ask ->
+      let bids = get_bids order_book in
+      let asks = get_asks order_book in
+      match bids, asks with
+      | best_bid :: _, best_ask :: _ ->
         let trade_qty = execute_trade best_bid best_ask in
         let trade = {
           buy_order_id = best_bid.id;

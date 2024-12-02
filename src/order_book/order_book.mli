@@ -14,10 +14,10 @@ val get_security : order_book -> string
 val get_price : Order.order -> float option
 (** [get_price order] returns the price of the order, or None if the order is a market order. *)
 
-val get_best_bid : order_book -> Order.order option
+val get_best_bid : order_book -> float option
 (** [get_best_bid order_book] returns the best bid in the order book. *)
 
-val get_best_ask : order_book -> Order.order option
+val get_best_ask : order_book -> float option
 (** [get_best_ask order_book] returns the best ask in the order book. *)
 
 val get_bids : order_book -> Order.order list

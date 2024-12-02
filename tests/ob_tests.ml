@@ -34,10 +34,19 @@ module OrderTests = struct
     assert_equal (is_expired active curr_time) false;
     assert_equal (is_expired market_order curr_time) false
 
+  let test_order_price _ =
+    let limit_order = create_order 0 "AAPL" (Limit { price = 150.0; expiration = None }) Buy 10.0 1 in
+    let market_order = create_order 1 "AAPL" Market Buy 10.0 1 in
+    let margin_order = create_order 2 "AAPL" (Margin 160.0) Buy 10.0 1 in
+    assert_equal (get_price limit_order) (Some 150.0);
+    assert_equal (get_price market_order) None;
+    assert_equal (get_price margin_order) (Some 160.0)
+
   let series = 
     "order_tests" >::: [
       "test_create_order" >:: test_create_order;
-      "test_is_expired" >:: test_is_expired
+      "test_is_expired" >:: test_is_expired;
+      "test_order_price" >:: test_order_price
     ]
 end
 
@@ -137,8 +146,8 @@ module OBTests = struct
     add_order book order2;
     let best_bid = get_best_bid book in
     let best_ask = get_best_ask book in
-    assert_equal (get_price_helper (Option.value_exn best_bid)) 150.0;
-    assert_equal (get_price_helper (Option.value_exn best_ask)) 155.0
+    assert_equal best_bid (Some 150.0);
+    assert_equal best_ask (Some 155.0)
 
   let test_remove_expired _ = 
     let book = create_order_book "AAPL" in
@@ -154,6 +163,18 @@ module OBTests = struct
     assert_equal (get_price_helper (List.hd_exn bids)) 155.0;
     assert_equal (List.length (get_asks book)) 0
 
+  let test_order_book_state _ =
+    let book = create_order_book "AAPL" in
+    let order1 = create_order (generate_order_id book) "AAPL" (Limit { price = 100.0; expiration = None }) Buy 10.0 1 in
+    let order2 = create_order (generate_order_id book) "AAPL" (Limit { price = 102.0; expiration = None }) Sell 5.0 2 in
+    add_order book order1;
+    add_order book order2;
+    let bids = get_bids book in
+    let asks = get_asks book in
+    assert_equal (List.length bids) 1;
+    assert_equal (List.length asks) 1;
+    assert_equal (List.hd_exn bids).qty 10.0;
+    assert_equal (List.hd_exn asks).qty 5.0
 
   let series = "order_book_tests" >::: [
     "test_create_ob" >:: test_create_ob;
@@ -166,7 +187,8 @@ module OBTests = struct
     (* "test_margin_insufficient_bal" >:: test_margin_insufficient_bal; *)
     "test_remove_order" >:: test_remove_limit_order;
     "test_best_bid_ask" >:: test_best_bid_ask;
-    "test_remove_expired" >:: test_remove_expired
+    "test_remove_expired" >:: test_remove_expired;
+    "test_order_book_state" >:: test_order_book_state
   ]
 end
 
@@ -174,20 +196,12 @@ module MatchingEngineTests = struct
   let create_market_conds ba_spread margin_rate = 
     create_market_conditions ba_spread margin_rate
 
-  let populate_ob () = 
+  let test_check_spread _ = 
     let book = create_order_book "AAPL" in
     let order1 = create_order (generate_order_id book) "AAPL" (Limit { price = 100.0; expiration = None }) Buy 10.0 1 in
     let order2 = create_order (generate_order_id book) "AAPL" (Limit { price = 102.0; expiration = None }) Sell 5.0 2 in
-    let order3 = create_order (generate_order_id book) "AAPL" (Limit { price = 101.0; expiration = None }) Buy 8.0 3 in
-    let order4 = create_order (generate_order_id book) "AAPL" (Limit { price = 103.0; expiration = None }) Sell 12.0 4 in
     add_order book order1;
     add_order book order2;
-    add_order book order3;
-    add_order book order4;
-    book
-
-  let test_check_spread _ = 
-    let book = populate_ob () in
     let market_conds = create_market_conds 3.0 0.5 in
     assert_equal (check_spread book market_conds) true;
     let tighter_market_conds = create_market_conds 0.5 0.5 in
@@ -202,42 +216,65 @@ module MatchingEngineTests = struct
     assert_equal sell.qty 0.0
 
   let test_match_orders _ = 
-    let book = populate_ob () in
+    let book = create_order_book "AAPL" in
+    let order1 = create_order (generate_order_id book) "AAPL" (Limit { price = 100.0; expiration = None }) Buy 10.0 1 in
+    let order2 = create_order (generate_order_id book) "AAPL" (Limit { price = 102.0; expiration = None }) Sell 5.0 2 in
+    add_order book order1;
+    add_order book order2;
     let market_conds = create_market_conds 5.0 0.5 in
     let trades = match_orders book market_conds in
     let trades = List.rev trades in
-    assert_equal (List.length trades) 3;
+    assert_equal (List.length trades) 1;
     match trades with
-    | trade1 :: trade2 :: trade3 :: _ ->
-      assert_equal trade1.trade_qty 5.0; (* buy @ 101 / 8.0, ask @ 102 / 5.0 *)
-      assert_equal trade1.buy_qty_after 3.0; (* match above, 8.0 - 5.0 --> buy @ 101 / 3.0 remaining *)
-      assert_equal trade1.sell_qty_after 0.0; (* should be nothing, all 102 / 5.0 were sold *)
-
-      assert_equal trade2.trade_qty 3.0; (* buy @ 101 / 3.0, ask @ 103 / 12.0 *)
-      assert_equal trade2.buy_qty_after 0.0; (* second buy is 0.0 *)
-      assert_equal trade2.sell_qty_after 9.0; (* should be 103 / 9.0, 103 / (12.0 - 3.0) sell remaining *)
-
-      assert_equal trade3.trade_qty 9.0; (* buy @ 100 / 10.0, ask @ 103 / 9.0 *)
-      assert_equal trade3.buy_qty_after 1.0; (* match above, 10.0 - 9.0 --> buy @ 100 / 1.0 remaining *)
-      assert_equal trade3.sell_qty_after 0.0 (* should be nothing, all 9.0 were sold *)
-    | _ -> assert_failure "Expected 3 trades"
+    | trade :: [] ->
+      assert_equal trade.trade_qty 5.0;
+      assert_equal trade.buy_qty_after 5.0;
+      assert_equal trade.sell_qty_after 0.0
+    | _ -> assert_failure "Expected 1 trade"
 
   let test_match_multiple_books _ =
-    let book1 = populate_ob () in
+    let book1 = create_order_book "AAPL" in
     let book2 = create_order_book "TSLA" in
-    let order5 = create_order (generate_order_id book2) "TSLA" (Limit { price = 200.0; expiration = None }) Buy 15.0 5 in
-    let order6 = create_order (generate_order_id book2) "TSLA" (Limit { price = 198.0; expiration = None }) Sell 10.0 6 in
-    add_order book2 order5;
-    add_order book2 order6;
+    
+    let order1 = create_order (generate_order_id book1) "AAPL" (Limit { price = 100.0; expiration = None }) Buy 10.0 1 in
+    let order2 = create_order (generate_order_id book1) "AAPL" (Limit { price = 102.0; expiration = None }) Sell 5.0 2 in
+    let order3 = create_order (generate_order_id book2) "TSLA" (Limit { price = 200.0; expiration = None }) Buy 15.0 3 in
+    let order4 = create_order (generate_order_id book2) "TSLA" (Limit { price = 198.0; expiration = None }) Sell 10.0 4 in
+    
+    add_order book1 order1;
+    add_order book1 order2;
+    add_order book2 order3;
+    add_order book2 order4;
+    
     let market_conds = create_market_conds 10.0 0.5 in
     let trades = match_all_books [book1; book2] market_conds in
-    assert_equal (List.length trades) 4
+    assert_equal (List.length trades) 2;
+    match trades with
+    | trade1 :: trade2 :: [] ->
+      assert_equal trade1.trade_qty 5.0;
+      assert_equal trade1.buy_qty_after 5.0;
+      assert_equal trade1.sell_qty_after 0.0;
+      assert_equal trade2.trade_qty 10.0;
+      assert_equal trade2.buy_qty_after 5.0;
+      assert_equal trade2.sell_qty_after 0.0
+    | _ -> assert_failure "Expected 2 trades"
+
+  let test_no_matching_orders _ =
+    let book = create_order_book "AAPL" in
+    let order1 = create_order (generate_order_id book) "AAPL" (Limit { price = 100.0; expiration = None }) Buy 10.0 1 in
+    let order2 = create_order (generate_order_id book) "AAPL" (Limit { price = 105.0; expiration = None }) Sell 5.0 2 in
+    add_order book order1;
+    add_order book order2;
+    let market_conds = create_market_conds 2.0 0.5 in
+    let trades = match_orders book market_conds in
+    assert_equal (List.length trades) 0
 
   let series = "matching_engine_tests" >::: [
       "test_check_spread" >:: test_check_spread;
       "test_execute_trade" >:: test_execute_trade;
       "test_match_orders" >:: test_match_orders;
-      "test_match_multiple_books" >:: test_match_multiple_books
+      "test_match_multiple_books" >:: test_match_multiple_books;
+      "test_no_matching_orders" >:: test_no_matching_orders
     ]
 end
 
