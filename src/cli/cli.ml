@@ -163,7 +163,54 @@ let continuous_matching_thread () =
     Unix.sleepf 0.001
   done
 
+let available_securities = [
+  "AAPL"; "MSFT"; "GOOGL"; "AMZN"; "TSLA"; 
+  "META"; "NVDA"; "RKLB"; "RIVN"; "PLTR"
+]
+
+let random_price base = 
+  base +. (Random.float 10.0) -. 5.0
+
+let initialize_random_orders security =
+  let ob = create_order_book security in
+  let base_price = match security with
+    | "AAPL" -> 150.0 | "MSFT" -> 330.0 | "GOOGL" -> 140.0
+    | "AMZN" -> 180.0 | "TSLA" -> 300.0 | "META" -> 300.0
+    | "NVDA" -> 400.0 | "RKLB" -> 20.0 | "RIVN" -> 15.0
+    | "PLTR" -> 53.0 | _ -> 100.0
+  in
+  for i = 1 to 5 do
+    let buy_price = random_price base_price in
+    let sell_price = random_price (base_price +. 1.0) in
+    let buy_order = create_order i security 
+      (Limit { price = buy_price; expiration = Some (current_time () +. 3600.0) })
+      Buy (Random.float 100.0) (-i) in
+    let sell_order = create_order (i + 100) security
+      (Limit { price = sell_price; expiration = Some (current_time () +. 3600.0) })
+      Sell (Random.float 100.0) (-i) in
+    add_order ob buy_order;
+    add_order ob sell_order
+  done;
+  ob
+
+let initialize_system () =
+  Random.self_init ();
+  (* choose 2-3 random securities to trade *)
+  let num_securities = 2 + Random.int 2 in
+  let selected = List.sort_uniq String.compare (
+    List.init num_securities (fun _ -> 
+      List.nth available_securities (Random.int (List.length available_securities))
+    )) in
+  List.iter (fun security ->
+    let ob = initialize_random_orders security in
+    Hashtbl.add order_books security ob;
+    Printf.printf "Market opened for %s\n" security
+  ) selected;
+  Hashtbl.add user_balances 1 1000.0;
+  Printf.printf "Initial balance set to $1000.00\n"
+
 let run_cli () = 
+  initialize_system ();
   let _ = Thread.create continuous_matching_thread () in
   let rec loop () =
     Printf.printf "\nSelect an option:\n";
