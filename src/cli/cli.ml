@@ -1,5 +1,7 @@
 open Order_book_lib.Order
 open Order_book_lib.Order_book
+open Order_book_lib.Market_conditions
+open Order_book_lib.Matching_engine
 
 let order_books : (string, order_book) Hashtbl.t = Hashtbl.create 16
 let user_balances : (int, float) Hashtbl.t = Hashtbl.create 16
@@ -9,10 +11,6 @@ let curr_user_id = ref None
 let get_user_balance user_id = 
   try Hashtbl.find user_balances user_id with _ -> 0.0
 
-let update_user_balance user_id amount = 
-  let current_balance = get_user_balance user_id in
-  Hashtbl.replace user_balances user_id (current_balance +. amount)
-
 let current_time () = Unix.gettimeofday ()
 
 let set_user_id () = 
@@ -20,7 +18,27 @@ let set_user_id () =
   let user_id = int_of_string (read_line ()) in
   curr_user_id := Some user_id
 
-let place_order () = 
+let place_order security order_type buy_sell qty user_id =
+  let order_book = 
+    match Hashtbl.find_opt order_books security with
+    | Some ob -> ob
+    | None ->
+        let new_ob = create_order_book security in
+        Hashtbl.add order_books security new_ob;
+        new_ob
+  in
+  let order = create_order (generate_order_id order_book) security order_type buy_sell qty user_id in
+  add_order order_book order;
+  
+  (* immediately try matching after adding order *)
+  let market_conditions = create_market_conditions 0.01 0.5 in (* can needed *)
+  let trades = match_orders order_book market_conditions in
+  List.iter (fun trade ->
+    Printf.printf "Trade executed: %f units at between orders %d and %d\n" 
+      trade.trade_qty trade.buy_order_id trade.sell_order_id
+  ) trades
+
+let place_order_interactive () =
   match !curr_user_id with
   | None -> Printf.printf "Please set your user ID first.\n"
   | Some user_id ->
@@ -57,18 +75,7 @@ let place_order () =
     if buy_sell = Buy && total_cost > curr_balance then
       Printf.printf "Insufficient funds. Please deposit more money.\n"
     else
-      let order_book = 
-        match Hashtbl.find_opt order_books security with
-        | Some ob -> ob
-        | None ->
-            let new_ob = create_order_book security in
-            Hashtbl.add order_books security new_ob;
-            new_ob
-      in
-      let order = create_order (generate_order_id order_book) security order_type buy_sell qty user_id in
-      add_order order_book order;
-      if buy_sell = Buy then update_user_balance user_id (-. total_cost);
-      Printf.printf "Order with ID %d placed!\n" order.id
+      place_order security order_type buy_sell qty user_id
 
 let cancel_order () = 
   match !curr_user_id with
@@ -143,7 +150,21 @@ let view_bal () =
   | Some user_id ->
     Printf.printf "Your balance is: %f\n" (get_user_balance user_id)
 
+let continuous_matching_thread () =
+  let market_conditions = create_market_conditions 0.01 0.5 in
+  while true do
+    let all_books = Hashtbl.to_seq_values order_books |> List.of_seq in
+    let trades = match_all_books all_books market_conditions in
+    List.iter (fun trade ->
+      Printf.printf "Trade executed: %f units between orders %d and %d\n" 
+        trade.trade_qty trade.buy_order_id trade.sell_order_id
+    ) trades;
+    
+    Unix.sleepf 0.001
+  done
+
 let run_cli () = 
+  let _ = Thread.create continuous_matching_thread () in
   let rec loop () =
     Printf.printf "\nSelect an option:\n";
     Printf.printf "1. Set user ID\n";
@@ -155,7 +176,7 @@ let run_cli () =
     Printf.printf "7. Exit\n";
     match read_line () with
     | "1" -> set_user_id (); loop ()
-    | "2" -> place_order (); loop ()
+    | "2" -> place_order_interactive (); loop ()
     | "3" -> cancel_order (); loop ()
     | "4" -> view_book (); loop ()
     | "5" -> view_my_orders (); loop ()

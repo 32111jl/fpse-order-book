@@ -6,8 +6,11 @@ val run_cli : unit -> unit
 val set_user_id : unit -> unit
 (** [set_user_id ()] sets the user ID for the current session. *)
 
-val place_order : unit -> unit
-(** [place_order ()] submits the order to the matching engine. *)
+val place_order : string -> Order_book_lib.Order.order_type -> Order_book_lib.Order.buy_sell -> float -> int -> unit
+(** [place_order security order_type buy_sell qty user_id] submits the order to the matching engine. *)
+
+val place_order_interactive : unit -> unit
+(** [place_order_interactive ()] submits the order to the matching engine interactively. *)
 
 val cancel_order : unit -> unit
 (** [cancel_order ()] cancels the order from the order book. *)
