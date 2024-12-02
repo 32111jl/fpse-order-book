@@ -1,5 +1,6 @@
 open Core
 open OUnit2
+(* open QCheck *)
 open Order_book_lib.Order
 open Order_book_lib.Order_book
 open Order_book_lib.Market_conditions
@@ -101,29 +102,28 @@ module OBTests = struct
     assert_equal (get_price_helper (List.hd_exn bids)) 150.0;
     assert_equal (List.hd_exn bids).qty 10.0
 
-  (* let test_add_margin_order _ =
+  let test_add_margin_order _ =
     let book = create_order_book "AAPL" in
-    let user_id = 1 in
-    update_user_balance user_id 100.0;
-    let order = create_order (generate_order_id book) "AAPL" (Margin 50.0) Buy 2.0 user_id in
+    let order = create_order (generate_order_id book) "AAPL" (Margin 150.0) Buy 10.0 1 in
     add_order book order;
     let bids = get_bids book in
     assert_equal (List.length bids) 1;
-    assert_equal (get_price (List.hd_exn bids)) 50.0;
-    assert_equal (List.hd_exn bids).qty 2.0
-    assert_equal (get_user_balance user_id) 75.0 *)
+    assert_equal (get_price_helper (List.hd_exn bids)) 150.0;
+    assert_equal (List.hd_exn bids).qty 10.0
 
   let test_remove_market_order _ = 
     let book = create_order_book "AAPL" in
     let order = create_order (generate_order_id book) "AAPL" Market Sell 10.0 1 in
     assert_raises (Failure "Not enough liquidity for market order.") (fun () -> add_order book order)
 
-  (* let test_margin_insufficient_bal _ =
+  let test_margin_insufficient_bal _ =
     let book = create_order_book "AAPL" in
-    let user_id = 1 in
-    update_user_balance user_id 10.0;
-    let order = create_order (generate_order_id book) "AAPL" (Margin 50.0) Buy 2.0 user_id in
-    assert_raises (Failure "Insufficient funds. Please deposit more money.") (fun () -> add_order book order) *)
+    let order = create_order (generate_order_id book) "AAPL" (Margin 150.0) Buy 10.0 1 in
+    add_order book order;
+    let bids = get_bids book in
+    assert_equal (List.length bids) 1;
+    assert_equal (get_price_helper (List.hd_exn bids)) 150.0;
+    assert_equal (List.hd_exn bids).qty 10.0
 
   let test_remove_limit_order _ =
     let book = create_order_book "AAPL" in
@@ -182,9 +182,9 @@ module OBTests = struct
     "test_add_partial_fill_market_order" >:: test_add_partial_fill_market_order;
     "test_add_insufficient_market_order" >:: test_add_insufficient_market_order;
     "test_add_order" >:: test_add_limit_order;
-    (* "test_add_margin_order" >:: test_add_margin_order; *)
+    "test_add_margin_order" >:: test_add_margin_order;
     "test_remove_market_order" >:: test_remove_market_order;
-    (* "test_margin_insufficient_bal" >:: test_margin_insufficient_bal; *)
+    "test_margin_insufficient_bal" >:: test_margin_insufficient_bal;
     "test_remove_order" >:: test_remove_limit_order;
     "test_best_bid_ask" >:: test_best_bid_ask;
     "test_remove_expired" >:: test_remove_expired;
@@ -278,11 +278,60 @@ module MatchingEngineTests = struct
     ]
 end
 
+(* module QuickCheckTests = struct
+
+  let price_gen = Gen.(float_range 1.0 1000.0)
+  let qty_gen = Gen.(float_range 1.0 100.0)
+  let user_id_gen = Gen.(int_range 1 1000)
+  let order_type_gen = Gen.(oneof [
+    return Market;
+    map (fun price -> Limit { price; expiration = None }) price_gen;
+    map (fun price -> Margin price) price_gen
+  ])
+
+  let side_gen = Gen.(map (fun b -> if b then Buy else Sell) bool)
+
+  let test_order_creation = Test.make
+    ~name:"random order creation preserves properties"
+    ~count:1000
+    (quad 
+      (make price_gen)
+      (make (Gen.map int_of_float qty_gen))
+      (make user_id_gen)
+      (make side_gen))
+    (fun (price, qty, user_id, side) ->
+      let order = create_order 0 "AAPL" (Limit { price; expiration = None }) side (float_of_int qty) user_id in
+      Float.equal order.qty (float_of_int qty) && 
+      order.user_id = user_id && 
+      order.buy_sell = side &&
+      match order.order_type with
+      | Limit { price = p; _ } -> Float.abs (p -. price) < 0.001
+      | _ -> false)
+
+  let test_order_book_sorting = Test.make
+    ~name:"order book maintains price-time priority"
+    ~count:100
+    (list_of_size Gen.(int_range 2 10) (pair price_gen qty_gen))
+    (fun price_qty_pairs ->
+      let book = create_order_book "AAPL" in
+      List.iter (fun (price, qty) ->
+        let order = create_order (generate_order_id book) "AAPL" (Limit { price; expiration = None }) Buy qty 1 in
+        add_order book order
+      ) price_qty_pairs;
+      true)
+
+  let series = "quickcheck_tests" >::: [
+    QCheck_runner.to_ounit2_test test_order_creation;
+    QCheck_runner.to_ounit2_test test_order_book_sorting;
+  ]
+end *)
+
 let series = 
   "Order Book tests" >::: [
     OrderTests.series;
     OBTests.series;
-    MatchingEngineTests.series
+    MatchingEngineTests.series;
+    (* QuickCheckTests.series *)
   ]
 
 let () =

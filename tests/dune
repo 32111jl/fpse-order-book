@@ -1,4 +1,8 @@
 (test
  (name ob_tests)
  (modules ob_tests)
- (libraries fpse-order-book.order_book_lib core ounit2 core_unix))
+ (libraries fpse-order-book.order_book_lib
+           core
+          ounit2
+          core_unix
+          qcheck))
