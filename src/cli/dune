@@ -1,7 +1,0 @@
-(library
- (name cli_lib)
- (public_name fpse-order-book.cli_lib)
- (modules cli)
- (libraries fpse-order-book.order_book_lib threads)
- (flags (:standard -thread))
- (preprocess (pps bisect_ppx)))

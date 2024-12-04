@@ -1,0 +1,23 @@
+# build folder
+_build/
+tests/_build/
+*.cmx
+*.cmxa
+*.cmo
+*.cmi
+*.exe
+*.o
+*.a
+*.so
+*.obj
+*.dll
+
+# opam files and cache
+_opam/
+*.opam.locked
+.opam-switch/
+
+# dune files ??
+.dune/
+*.install
+.dune-project

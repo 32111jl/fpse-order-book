@@ -231,3 +231,6 @@ let run_cli () =
     | "7" -> Printf.printf "Goodbye! Thanks for trading!\n"
     | _ -> Printf.printf "Invalid option. Please try again.\n"; loop ()
   in loop ()
+
+(* run as executable *)
+let () = run_cli ()
