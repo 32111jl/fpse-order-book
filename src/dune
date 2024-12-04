@@ -1,5 +1,5 @@
 (executable
  (name cli)
  (public_name order_book_app)
- (modules cli)
+ (modules cli printer)
  (libraries fpse-order-book.order_book_lib threads))

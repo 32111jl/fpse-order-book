@@ -1,5 +1,5 @@
 
-type t = {
+type market_conditions = {
   bid_ask_spread : float;
   margin_rate : float;
 }

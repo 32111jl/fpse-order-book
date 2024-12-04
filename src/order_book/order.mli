@@ -23,3 +23,9 @@ val create_order : int -> string -> order_type -> buy_sell -> float -> int -> or
 
 val is_expired : order -> float -> bool
 (** [is_expired order curr_time] returns true if the order is expired, false otherwise. *)
+
+val get_price : order -> float option
+(** [get_price order] returns the price of the order if it is a limit or margin order, None otherwise. *)
+
+val get_price_helper : order -> float
+(** [get_price_helper order] returns the price of the order if it is a limit or margin order, 0.0 otherwise. *)

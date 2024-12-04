@@ -22,8 +22,18 @@ let create_order (id : int) (security : string) (order_type : order_type) (buy_s
   let timestamp = Unix.time () in
   { id; security; order_type; buy_sell; qty; timestamp; user_id }
 
-
 let is_expired (order : order) (curr_time : float) : bool = 
   match order.order_type with
   | Limit { price = _; expiration = Some exp } -> curr_time >= exp
   | _ -> false
+
+let get_price (order : order) : float option =
+  match order.order_type with
+  | Market -> None
+  | Limit { price; _ } -> Some price
+  | Margin price -> Some price
+
+let get_price_helper (order : order) : float =
+  match get_price order with
+  | None -> 0.0
+  | Some price -> price

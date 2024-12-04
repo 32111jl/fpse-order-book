@@ -9,13 +9,13 @@ type trade = {
 }
 
 
-val match_orders : Order_book.order_book -> Market_conditions.t -> trade list
+val match_orders : Order_book.order_book -> Market_conditions.market_conditions -> trade list
 (** [match_orders order_book market_conditions] matches buy/sell orders based on price-time priority. *)
 
-val match_all_books : Order_book.order_book list -> Market_conditions.t -> trade list
+val match_all_books : Order_book.order_book list -> Market_conditions.market_conditions -> trade list
 (** [match_all_books books market_conditions] matches buy/sell orders for the given order books. *)
 
-val check_spread : Order_book.order_book -> Market_conditions.t -> bool
+val check_spread : Order_book.order_book -> Market_conditions.market_conditions -> bool
 (** [check_spread order_book market_conditions] checks if the spread is within the market conditions. *)
 
 val execute_trade : Order.order -> Order.order -> float
