@@ -1,0 +1,5 @@
+(library
+ (name ob_db)
+ (public_name fpse-order-book.ob_db)
+ (modules ob_db)
+ (libraries postgresql))

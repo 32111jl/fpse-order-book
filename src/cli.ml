@@ -48,30 +48,33 @@ let get_or_create_order_book (security : string) : order_book =
 
 let place_order (security : string) (order_type : order_type) (buy_sell : buy_sell) (qty : float) (user_id : int) =
   let order_book = get_or_create_order_book security in
-  let order = create_order (generate_order_id order_book) security order_type buy_sell qty user_id in
   
-  (* For market orders, we need to check if there's enough balance based on the best available price *)
-  if buy_sell = Buy && order_type = Market then
-    match get_best_ask order_book with
-    | None -> 
-      Printf.printf "No asks available for Market Buy order. Try a Limit order instead.\n";
-      ()
-    | Some price ->
-      let cost = price *. qty in
-      if cost > get_balance user_id then
-        Printf.printf "Insufficient funds for market buy order. Required: $%.2f, Available: $%.2f\n" 
-          cost (get_balance user_id)
-      else begin
-        add_order order_book order;
-        let market_conditions = create_dynamic_market_conditions security in
-        let trades = match_orders order_book market_conditions in
-        List.iter (fun trade -> print_trade trade security) trades
-      end
+  (* check if we can afford the order *)
+  let can_afford = match order_type, buy_sell with
+    | Market, Buy -> 
+      (match get_best_ask order_book with
+        | None -> false
+        | Some price -> price *. qty <= get_balance user_id)
+    | Limit { price; _ }, Buy -> price *. qty <= get_balance user_id
+    | Margin price, Buy -> price *. qty *. 0.5 <= get_balance user_id  (* 50% margin requirement *)
+    | _, Sell -> true
+  in
+  if not can_afford then
+    Printf.printf "Insufficient funds for this order.\n"
   else begin
-    add_order order_book order;
+    let order = create_order (generate_order_id order_book) security order_type buy_sell qty user_id in
+    
+    (* try to match orders immediately *)
     let market_conditions = create_dynamic_market_conditions security in
     let trades = match_orders order_book market_conditions in
-    List.iter (fun trade -> print_trade trade security) trades
+    if List.length trades = 0 then begin
+      add_order order_book order;
+      Printf.printf "Order added to book: %s %s %.2f shares at $%.2f\n" 
+        security (match buy_sell with Buy -> "Buy" | Sell -> "Sell") qty (get_price_helper order)
+    end else List.iter (fun trade ->  
+      Printf.printf "Trade executed: %f units of %s between orders %d and %d.\n" 
+        trade.trade_qty security trade.buy_order_id trade.sell_order_id
+    ) trades
   end
 
 let rec get_order_direction () =
@@ -153,7 +156,7 @@ let place_order_interactive () =
     | Some ob -> print_orders ob
     | None ->
       Printf.printf "No orders yet for %s.\n" security);
-      Hashtbl.remove order_books security; (* temporary fix bc otherwise nonexistent security will be created *)
+      (* Hashtbl.remove order_books security; temporary fix bc otherwise nonexistent security will be created *)
     let buy_sell = get_order_direction () in
     let order_type = get_order_type () in
     let qty = get_quantity () in
@@ -354,7 +357,7 @@ let run_cli () =
     Printf.printf "2. Place order\n";
     Printf.printf "3. Cancel order\n";
     Printf.printf "4. View order book\n";
-    Printf.printf "5. View my orders\n";
+    Printf.printf "5. View open orders\n";
     Printf.printf "6. View my balance\n";
     Printf.printf "7. Exit\n";
     Printf.printf "------------------------\n";

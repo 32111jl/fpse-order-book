@@ -1,7 +1,18 @@
+(* User module *)
+
+type trade_record = {
+  timestamp : float;
+  security : string;
+  qty : float;
+  price : float;
+  is_buy : bool;
+}
+
 type user = {
   id : int;
   mutable balance : float;
   mutable positions : (string, float) Hashtbl.t;
+  mutable trade_history : (string, trade_record list) Hashtbl.t;
 }
 
 val create_user : int -> float -> user

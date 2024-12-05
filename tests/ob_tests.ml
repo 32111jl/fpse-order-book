@@ -293,8 +293,9 @@ module MatchingEngineTests = struct
   let test_execute_trade _ =
     let buy = create_order 0 "AAPL" (Limit { price = 100.0; expiration = None }) Buy 10.0 1 in
     let sell = create_order 1 "AAPL" (Limit { price = 100.0; expiration = None }) Sell 5.0 2 in
-    let trade_qty = execute_trade buy sell in
+    let trade_qty, trade_price = execute_trade buy sell in
     assert_equal trade_qty 5.0;
+    assert_equal trade_price 100.0;
     assert_equal buy.qty 5.0;
     assert_equal sell.qty 0.0
 
