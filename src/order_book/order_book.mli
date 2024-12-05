@@ -26,6 +26,9 @@ val get_bids : order_book -> Order.order list
 val get_asks : order_book -> Order.order list
 (** [get_asks order_book] returns the asks in the order book. *)
 
+val get_qty_at_price : order_book -> float -> float
+(** [get_qty_at_price order_book price] returns the quantity of shares at the given price. *) 
+
 val add_order : order_book -> Order.order -> unit
 (** [add_order order_book order] adds an order to the order book. *)
 

@@ -34,10 +34,6 @@ let create_dynamic_market_conditions (security : string) : market_conditions =
   let spread = base_price *. 0.10 in (* 10% of base price, can be changed *)
   create_market_conditions spread 0.5
 
-(* let print_trade (trade : trade) (security : string) =
-  Printf.printf "Trade executed: %f units of %s between orders %d and %d.\n" 
-                trade.trade_qty security trade.buy_order_id trade.sell_order_id *)
-
 let get_or_create_order_book (security : string) : order_book =
   match Hashtbl.find_opt order_books security with
   | Some ob -> ob
@@ -46,9 +42,68 @@ let get_or_create_order_book (security : string) : order_book =
     Hashtbl.add order_books security new_ob;
     new_ob
 
+let execute_trade (order_book : order_book) (order1 : order) (order2 : order) =
+  let trade_qty = min order1.qty order2.qty in
+  let trade_price = get_price_helper order2 in
+  let total_cost = trade_price *. trade_qty in
+  let (buyer, seller) = match order1.buy_sell with
+    | Buy -> (order1, order2)
+    | Sell -> (order2, order1)
+  in
+  update_balance buyer.user_id (-.total_cost);
+  update_position buyer.user_id buyer.security trade_qty;
+  update_balance seller.user_id total_cost;
+  update_position seller.user_id seller.security (-.trade_qty);
+
+  buyer.qty <- buyer.qty -. trade_qty;
+  seller.qty <- seller.qty -. trade_qty;
+
+  if buyer.qty <= 0.0 then remove_order order_book buyer.id;
+  if seller.qty <= 0.0 then remove_order order_book seller.id;
+  (trade_qty, trade_price)
+
+let handle_market_order order_book order =
+  match order.buy_sell with
+  | Buy -> (
+    match get_best_ask order_book with
+    | Some price ->
+      let best_ask_order = List.find (fun order -> get_price order = Some price) (get_asks order_book) in
+      ignore (execute_trade order_book order best_ask_order)
+    | None -> Printf.printf "No asks to match market buy.\n"
+  )
+  | Sell -> (
+    match get_best_bid order_book with
+    | Some price ->
+      let best_bid_order = List.find (fun order -> get_price order = Some price) (get_bids order_book) in
+      ignore (execute_trade order_book order best_bid_order)
+    | None -> Printf.printf "No bids to match market sell.\n"
+  )
+
+let handle_other_order order_book order =
+  match order.buy_sell with
+  | Buy -> (
+    match get_best_ask order_book with
+    | Some ask_price ->
+      let our_price = get_price_helper order in
+      if our_price < ask_price then add_order order_book order
+      else
+        let best_ask_order = List.find (fun order -> get_price order = Some ask_price) (get_asks order_book) in
+        ignore (execute_trade order_book order best_ask_order)
+    | None -> add_order order_book order
+  )
+  | Sell -> (
+    match get_best_bid order_book with
+    | Some bid_price ->
+      let our_price = get_price_helper order in
+      if our_price > bid_price then add_order order_book order
+      else
+        let best_bid_order = List.find (fun order -> get_price order = Some bid_price) (get_bids order_book) in
+        ignore (execute_trade order_book order best_bid_order)
+    | None -> add_order order_book order
+  )
+
 let place_order (security : string) (order_type : order_type) (buy_sell : buy_sell) (qty : float) (user_id : int) =
   let order_book = get_or_create_order_book security in
-  
   (* check if we can afford the order *)
   let can_afford = match order_type, buy_sell with
     | Market, Buy -> 
@@ -59,23 +114,12 @@ let place_order (security : string) (order_type : order_type) (buy_sell : buy_se
     | Margin price, Buy -> price *. qty *. 0.5 <= get_balance user_id  (* 50% margin requirement *)
     | _, Sell -> true
   in
-  if not can_afford then
-    Printf.printf "Insufficient funds for this order.\n"
-  else begin
-    let order = create_order (generate_order_id order_book) security order_type buy_sell qty user_id in
-    
-    (* try to match orders immediately *)
-    let market_conditions = create_dynamic_market_conditions security in
-    let trades = match_orders order_book market_conditions in
-    if List.length trades = 0 then begin
-      add_order order_book order;
-      Printf.printf "Order added to book: %s %s %.2f shares at $%.2f\n" 
-        security (match buy_sell with Buy -> "Buy" | Sell -> "Sell") qty (get_price_helper order)
-    end else List.iter (fun trade ->  
-      Printf.printf "Trade executed: %f units of %s between orders %d and %d.\n" 
-        trade.trade_qty security trade.buy_order_id trade.sell_order_id
-    ) trades
-  end
+  if not can_afford then Printf.printf "Insufficient funds for this order.\n"
+  else
+  let order = create_order (generate_order_id order_book) security order_type buy_sell qty user_id in
+  match order_type with
+  | Market -> handle_market_order order_book order
+  | Limit _ | Margin _ -> handle_other_order order_book order
 
 let rec get_order_direction () =
   Printf.printf "Enter the order direction (Buy/Sell): ";
@@ -112,37 +156,6 @@ let rec get_quantity () =
   with Failure _ -> 
     Printf.printf "Invalid quantity. Please enter a valid number.\n";
     get_quantity ()
-
-(* let print_market_prices () =
-  Printf.printf "\nCurrent Market Prices:\n";
-  Hashtbl.iter (fun security ob ->
-    let best_bid = match get_best_bid ob with 
-      | Some price -> Printf.sprintf "%.2f" price
-      | None -> "None" in
-    let best_ask = match get_best_ask ob with
-      | Some price -> Printf.sprintf "%.2f" price
-      | None -> "None" in
-    Printf.printf "%s: Bid: %s, Ask: %s\n" security best_bid best_ask
-  ) order_books;
-  Printf.printf "------------------------\n"
-
-let print_orders ob =
-  Printf.printf "\nOrder book for %s:\n" (get_security ob);
-  Printf.printf "Bids:\n";
-  let bids = get_bids ob in
-  if bids = [] then Printf.printf "No bids\n"
-  else
-    List.iter (fun (order : order) -> 
-      Printf.printf "Price: $%.2f, Qty: %.2f\n" (get_price_helper order) order.qty
-    ) bids;
-  Printf.printf "\nAsks:\n";
-  let asks = get_asks ob in
-  if asks = [] then Printf.printf "No asks\n"
-  else
-    List.iter (fun order -> 
-      Printf.printf "Price: $%.2f, Qty: %.2f\n" (get_price_helper order) order.qty
-    ) asks;
-  Printf.printf "------------------------\n" *)
 
 let place_order_interactive () =
   match !curr_user_id with
@@ -236,16 +249,6 @@ let get_price_helper order =
   | None -> 0.0  (* or another suitable default for market orders *)
   | Some price -> price
 
-  (* let print_orders ob =
-  Printf.printf "Order book for %s:\n" (get_security ob);
-  let print_order order = 
-    Printf.printf "Price: %f, Qty: %f\n" (get_price_helper order) order.qty
-  in
-  Printf.printf "Bids:\n";
-  List.iter print_order (get_bids ob);
-  Printf.printf "Asks:\n";
-  List.iter print_order (get_asks ob) *)
-
 let view_book () = 
   Printf.printf "Enter the security you want to view, or 'ALL' to view all securities: ";
   match read_line () with
@@ -267,7 +270,7 @@ let view_my_orders () =
         user_orders := true;
         Printf.printf "Orders in %s:\n" (get_security ob);
         List.iter (fun (order : order) -> 
-          Printf.printf "ID: %d, Type: %s, Price: %f, Qty: %f\n" 
+          Printf.printf "ID: %d, Type: %s, Price: %.2f, Qty: %.2f\n" 
             order.id 
             (match order.order_type with
               | Market -> "Market"

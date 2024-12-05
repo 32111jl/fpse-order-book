@@ -76,6 +76,11 @@ let get_asks (order_book : order_book) =
     Queue.fold (fun acc order -> order :: acc) acc q
   ) order_book.asks [] |> List.rev
 
+let get_qty_at_price (order_book : order_book) (price : float) =
+  match PriceMap.find_opt price order_book.bids with
+  | Some q -> Queue.fold (fun acc order -> acc +. order.qty) 0.0 q
+  | None -> 0.0
+
 let match_market_order order_book order = 
   let (table, set_table, update_best) = match order.buy_sell with
     | Buy -> (order_book.asks, (fun ob -> order_book.asks <- ob), (fun () -> order_book.best_ask <- None))
