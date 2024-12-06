@@ -72,9 +72,9 @@ let get_user_balance user_id =
     else None
   | Error _ -> None
 
-let update_user_balance user_id balance =
-  let query = "UPDATE users SET balance = $1 WHERE id = $2" in
-  execute_query query [| string_of_float balance; string_of_int user_id |]
+let update_user_balance user_id delta =
+  let query = "UPDATE users SET balance = balance + $1 WHERE id = $2" in
+  execute_query query [| string_of_float delta; string_of_int user_id |]
 
 
 (* order-related operations *)
@@ -112,6 +112,10 @@ let get_order order_id =
 let get_orders_by_user user_id =
   let query = "SELECT * FROM orders WHERE user_id = $1" in
   execute_query query [| string_of_int user_id |]
+
+let update_order_qty order_id qty =
+  let query = "UPDATE orders SET quantity = $1 WHERE id = $2" in
+  execute_query query [| string_of_float qty; string_of_int order_id |]
 
 let update_order_status order_id status =
   let query = "UPDATE orders SET status = $1 WHERE id = $2" in
@@ -213,7 +217,7 @@ let commit_transaction _conn = execute_query "COMMIT" [||]
 let rollback_transaction _conn = execute_query "ROLLBACK" [||]
 
 let with_transaction f =
-  match with_connection (fun conn ->
+  (* match with_connection (fun conn ->
     let _ = begin_transaction conn in
     try
       let result = f conn in
@@ -224,4 +228,15 @@ let with_transaction f =
       Error (Printexc.to_string e)
   ) with
   | Ok result -> result
-  | Error e -> Error e
+  | Error e -> Error e *)
+  let conn = new connection ~conninfo:conn_info () in
+  try
+    ignore (conn#exec "BEGIN");
+    let result = f conn in
+    ignore (conn#exec "COMMIT");
+    conn#finish;
+    Ok result
+  with e ->
+    ignore (conn#exec "ROLLBACK");
+    conn#finish;
+    Error (Printexc.to_string e)

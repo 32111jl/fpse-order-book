@@ -5,35 +5,36 @@ open Database.Db
 let print_orders (ob : order_book) =
   Printf.printf "Bids:\n";
   let security = get_security ob in
-  match get_active_orders_given_security security with
+  (match get_active_orders_given_security security with
   | Ok result ->
-      let bids = ref [] in
-      for i = 0 to result#ntuples - 1 do
-        if result#getvalue i 4 = "BUY" then
-          bids := (result#getvalue i 6, result#getvalue i 5) :: !bids
-      done;
-      if !bids = [] then Printf.printf "No bids\n"
-      else
-        List.iter (fun (price, qty) -> 
-          Printf.printf "Price: $%s, Qty: %s\n" price qty
-        ) (List.sort (fun (p1, _) (p2, _) -> 
-          compare (float_of_string p2) (float_of_string p1)) !bids);
-  | Error _ -> Printf.printf "Error fetching bids\n";
+    let bids = ref [] in
+    for i = 0 to result#ntuples - 1 do
+      if result#getvalue i 4 = "BUY" then
+        bids := (result#getvalue i 6, result#getvalue i 5) :: !bids
+    done;
+    if !bids = [] then Printf.printf "No bids.\n"
+    else
+      List.iter (fun (price, qty) -> 
+        Printf.printf "Price: $%s, Qty: %s\n" price qty
+      ) (List.sort (fun (p1, _) (p2, _) -> 
+        compare (float_of_string p2) (float_of_string p1)) !bids);
+  | Error _ -> Printf.printf "Error fetching bids.\n");
+
   Printf.printf "\nAsks:\n";
-  match get_active_orders_given_security security with
+  (match get_active_orders_given_security security with
   | Ok result ->
-      let asks = ref [] in
-      for i = 0 to result#ntuples - 1 do
-        if result#getvalue i 4 = "SELL" then
-          asks := (result#getvalue i 6, result#getvalue i 5) :: !asks
-      done;
-      if !asks = [] then Printf.printf "No asks\n"
-      else
-        List.iter (fun (price, qty) -> 
-          Printf.printf "Price: $%s, Qty: %s\n" price qty
-        ) (List.sort (fun (p1, _) (p2, _) -> 
-          compare (float_of_string p1) (float_of_string p2)) !asks);
-  | Error _ -> Printf.printf "Error fetching asks\n";
+    let asks = ref [] in
+    for i = 0 to result#ntuples - 1 do
+      if result#getvalue i 4 = "SELL" then
+        asks := (result#getvalue i 6, result#getvalue i 5) :: !asks
+    done;
+    if !asks = [] then Printf.printf "No asks.\n"
+    else
+      List.iter (fun (price, qty) -> 
+        Printf.printf "Price: $%s, Qty: %s\n" price qty
+      ) (List.sort (fun (p1, _) (p2, _) -> 
+        compare (float_of_string p1) (float_of_string p2)) !asks);
+  | Error _ -> Printf.printf "Error fetching asks.\n");
   Printf.printf "------------------------\n"
 
 let print_user_orders user_id =
@@ -84,27 +85,55 @@ let print_query_result result =
     done
   | Error msg -> Printf.printf "Error: %s\n" msg
 
+
+let print_available_securities ?(active_only=false) securities =
+  if active_only then
+    let active_securities = List.filter (fun security -> 
+      match get_active_orders_given_security security with
+      | Ok result -> result#ntuples > 0
+      | Error _ -> false
+    ) securities in
+    if active_securities = [] then Printf.printf "No securities with active orders.\n"
+    else begin
+      Printf.printf "Securities with active orders:\n";
+      List.iter (fun security -> Printf.printf "%s " security) active_securities;
+      Printf.printf "\n"
+    end
+  else begin
+    Printf.printf "All available securities:\n";
+    List.iter (fun security -> Printf.printf "%s " security) securities;
+    Printf.printf "\n"
+  end
+
 let print_security_info security =
   match get_security_info security with
   | Ok result ->
-    if result#ntuples > 0 then
-      Printf.printf "Symbol: %s\nPrice: $%s\nStatus: %s\n"
-        (result#getvalue 0 0)  (* symbol *)
-        (result#getvalue 0 1)  (* price *)
-        (result#getvalue 0 2)  (* status *)
-    else Printf.printf "Security %s not found\n" security
+    if result#ntuples > 0 then begin
+      Printf.printf "\n=== Information for %s ===\n" security;
+      Printf.printf "Current Price: $%s\n" (result#getvalue 0 1);
+      match get_active_orders_given_security security with
+      | Ok orders ->
+        let num_orders = orders#ntuples in
+        if num_orders > 0 then Printf.printf "Active Orders: %d\n" num_orders
+        else Printf.printf "No active orders\n";
+        (* print recent trades *)
+        (match get_trades_by_security security with
+        | Ok trades when trades#ntuples > 0 ->
+          Printf.printf "Recent Trades: %d\n" trades#ntuples;
+          Printf.printf "Last Trade Price: $%s\n" (trades#getvalue 0 5)
+        | _ -> Printf.printf "No recent trades.\n")
+      | Error _ -> Printf.printf "Error fetching trades.\n"
+    end
   | Error msg -> Printf.printf "Error: %s\n" msg
 
 let print_recent_trades security =
   match get_trades_by_security security with
   | Ok result ->
-    if result#ntuples = 0 then
-      Printf.printf "No trades for %s\n" security
-    else begin
-      Printf.printf "\nRecent Trades for %s:\n" security;
-      Printf.printf "ID\tQty\tPrice\n";
+    if result#ntuples > 0 then begin
+      Printf.printf "\n=== Recent Trades for %s ===\n" security;
+      Printf.printf "Trade ID\tQuantity\tPrice\n";
       for i = 0 to result#ntuples - 1 do
-        Printf.printf "%s\t%s\t$%s\n"
+        Printf.printf "%s\t\t%s\t\t$%s\n"
           (result#getvalue i 0)  (* id *)
           (result#getvalue i 4)  (* quantity *)
           (result#getvalue i 5)  (* price *)
