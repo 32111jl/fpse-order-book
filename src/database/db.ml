@@ -1,6 +1,6 @@
-open Order_types
 open Postgresql
 open Result
+open Utils
 
 let conn_info = "host=localhost dbname=order_book user=ob1 password=123"
 
@@ -86,15 +86,8 @@ let create_order ~id ~user_id ~security ~order_type ~buy_sell ~qty ~price =
     ) VALUES (
       $1, $2, $3, $4, $5, $6, $7, 'ACTIVE'
     ) RETURNING id" in
-  let order_type_str = match order_type with
-    | Market -> "MARKET"
-    | Limit _ -> "LIMIT"
-    | Margin _ -> "MARGIN"
-  in
-  let buy_sell_str = match buy_sell with
-    | Buy -> "BUY"
-    | Sell -> "SELL"
-  in
+  let order_type_str = order_type_to_string order_type in
+  let buy_sell_str = buy_sell_to_string buy_sell in
   let params = [|
     string_of_int id;
     string_of_int user_id;
@@ -105,6 +98,7 @@ let create_order ~id ~user_id ~security ~order_type ~buy_sell ~qty ~price =
     string_of_float price
   |] in
   execute_query query params
+
 let get_order order_id =
   let query = "SELECT * FROM orders WHERE id = $1" in
   execute_query query [| string_of_int order_id |]

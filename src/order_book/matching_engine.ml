@@ -1,7 +1,8 @@
 open Order_book
-open Order_types
 open Market_conditions
 open Database.Db
+open Utils
+open Utils.Order_types
 
 let check_spread (order_book : order_book) (market_conditions : market_conditions) : bool =
   match get_best_bid order_book, get_best_ask order_book with

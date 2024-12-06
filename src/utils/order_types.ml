@@ -16,12 +16,12 @@ type order = {
 }
 
 type db_order = {
-  id: int;
-  user_id: int;
-  security: string;
-  order_type: order_type;
-  buy_sell: buy_sell;
-  qty: float;
+  id : int;
+  user_id : int;
+  security : string;
+  order_type : order_type;
+  buy_sell : buy_sell;
+  qty : float;
 }
 
 type trade = {

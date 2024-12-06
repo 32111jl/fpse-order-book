@@ -5,11 +5,17 @@ TRUNCATE TABLE orders CASCADE;
 TRUNCATE TABLE users CASCADE;
 TRUNCATE TABLE securities CASCADE;
 
--- add some randoms
+-- add some randoms (negative id = computer-generated)
 INSERT INTO users (id, name, balance) VALUES 
+(-1000001, 'Computer_1', 10000000.0),
+(-1000002, 'Computer_2', 10000000.0),
+(-1000003, 'Computer_3', 10000000.0),
+(-1000004, 'Computer_4', 10000000.0),
+(-1000005, 'Computer_5', 10000000.0),
 (1, 'Alice', 10000.00),
 (2, 'Bob', 15000.00),
-(3, 'Charlie', 20000.00);
+(3, 'Charlie', 20000.00)
+ON CONFLICT (id) DO NOTHING;
 
 -- add some securities with random prices
 INSERT INTO securities (symbol, price, status) VALUES 

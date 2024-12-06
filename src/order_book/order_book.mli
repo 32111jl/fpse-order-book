@@ -1,5 +1,4 @@
 (** Interface for the order book module. *)
-
 type order_book = {
   security : string;
   mutable best_bid : float option;
@@ -12,7 +11,7 @@ val create_order_book : string -> order_book
 val get_security : order_book -> string
 (** [get_security order_book] returns the security of the order book. *)
 
-val get_price : Order_types.db_order -> float option
+val get_price : Utils.Order_types.db_order -> float option
 (** [get_price order] returns the price of the order, or None if the order is a market order. *)
 
 val get_best_bid : order_book -> float option
@@ -21,13 +20,13 @@ val get_best_bid : order_book -> float option
 val get_best_ask : order_book -> float option
 (** [get_best_ask order_book] returns the best ask in the order book. *)
 
-val get_bids : order_book -> Order_types.db_order list
+val get_bids : order_book -> Utils.Order_types.db_order list
 (** [get_bids order_book] returns the bids in the order book. *)
 
-val get_asks : order_book -> Order_types.db_order list
+val get_asks : order_book -> Utils.Order_types.db_order list
 (** [get_asks order_book] returns the asks in the order book. *)
 
-val add_order : order_book -> Order_types.db_order -> (Postgresql.result, string) result
+val add_order : order_book -> Utils.Order_types.db_order -> (Postgresql.result, string) result
 (** [add_order order_book order] adds an order to the order book. *)
 
 val remove_order : order_book -> int -> (Postgresql.result, string) result

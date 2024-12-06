@@ -1,5 +1,5 @@
 open Order_book_lib.Order_book
-open Order_types
+open Utils.Order_types
 open Database.Db
 
 let print_orders (ob : order_book) =
@@ -15,7 +15,7 @@ let print_orders (ob : order_book) =
     if !bids = [] then Printf.printf "No bids.\n"
     else
       List.iter (fun (price, qty) -> 
-        Printf.printf "Price: $%s, Qty: %s\n" price qty
+        Printf.printf "Price: $%.2f, Qty: %.2f\n" (float_of_string price) (float_of_string qty)
       ) (List.sort (fun (p1, _) (p2, _) -> 
         compare (float_of_string p2) (float_of_string p1)) !bids);
   | Error _ -> Printf.printf "Error fetching bids.\n");
@@ -31,7 +31,7 @@ let print_orders (ob : order_book) =
     if !asks = [] then Printf.printf "No asks.\n"
     else
       List.iter (fun (price, qty) -> 
-        Printf.printf "Price: $%s, Qty: %s\n" price qty
+        Printf.printf "Price: $%.2f, Qty: %.2f\n" (float_of_string price) (float_of_string qty)
       ) (List.sort (fun (p1, _) (p2, _) -> 
         compare (float_of_string p1) (float_of_string p2)) !asks);
   | Error _ -> Printf.printf "Error fetching asks.\n");

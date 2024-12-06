@@ -2,5 +2,5 @@
  (name order_book_lib)
  (public_name fpse-order-book.order_book_lib)
  (modules order order_book matching_engine market_conditions user)
- (libraries core unix order_types database)
+ (libraries core database unix utils)
  (preprocess (pps bisect_ppx)))

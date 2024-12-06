@@ -1,4 +1,0 @@
-(library
- (name order_types)
- (public_name fpse-order-book.order_types)
- (modules order_types))
