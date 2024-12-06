@@ -1,3 +1,5 @@
+open Database.Db
+
 type trade_record = {
   timestamp : float;    (* seconds since epoch *)
   security : string;   (* security symbol *)  
@@ -13,43 +15,26 @@ type user = {
   mutable trade_history : (string, trade_record list) Hashtbl.t;  (* security, list of trades *)
 }
 
-let user_balances : (int, user) Hashtbl.t = Hashtbl.create 16
 
 let create_user id initial_balance =
-  let user = { 
-    id; 
-    balance = initial_balance;
-    positions = Hashtbl.create 16;
-    trade_history = Hashtbl.create 16;
-  } in
-  Hashtbl.add user_balances id user;
-  user
+  if initial_balance > 0.0 then create_user_in_db ~id ~name:"" ~balance:initial_balance
+  else Error "Initial balance cannot be negative!"
 
-let get_balance user_id =
-  match Hashtbl.find_opt user_balances user_id with
-  | Some user -> user.balance
-  | None -> 0.0
+let get_balance user_id = get_user_balance user_id
 
 let update_balance user_id amount =
-  match Hashtbl.find_opt user_balances user_id with
-  | Some user -> user.balance <- user.balance +. amount
-  | None -> 
-    let user = create_user user_id amount in
-    user.balance <- amount
+  match get_user_balance user_id with
+  | Some current_balance when current_balance +. amount >= 0.0 ->
+    update_user_balance user_id (current_balance +. amount)
+  | Some _ -> Error "Insufficient balance!"
+  | None -> Error "User not found!"
 
-let get_position user_id security =
-  match Hashtbl.find_opt user_balances user_id with
-  | None -> 0.0
-  | Some user ->
-    match Hashtbl.find_opt user.positions security with
-    | None -> 0.0
-    | Some qty -> qty
+let get_position user_id security = get_positions_by_security user_id security
 
 let update_position user_id security qty_change =
-  match Hashtbl.find_opt user_balances user_id with
-  | None -> 
-    let user = create_user user_id 0.0 in
-    Hashtbl.add user.positions security qty_change
-  | Some user ->
-    let current = get_position user_id security in
-    Hashtbl.replace user.positions security (current +. qty_change)
+  match get_positions_by_security user_id security with
+  | Some current_qty when current_qty +. qty_change >= 0.0 ->
+    update_position user_id security qty_change
+  | Some _ -> Error "Insufficient position!"
+  | None when qty_change >= 0.0 -> update_position user_id security qty_change
+  | None -> Error "Can't sell what you don't have..."

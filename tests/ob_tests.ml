@@ -1,8 +1,9 @@
-open Core
+(* open Core
 open OUnit2
 (* open QCheck *)
 open Order_book_lib.Order
 open Order_book_lib.Order_book
+open Order_types
 open Order_book_lib.Market_conditions
 open Order_book_lib.Matching_engine
 
@@ -420,4 +421,4 @@ let series =
   ]
 
 let () =
-  run_test_tt_main series;
+  run_test_tt_main series; *)

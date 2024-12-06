@@ -1,12 +1,14 @@
-open Order_book_lib.Order
+(* open Order_book_lib.Order *)
 open Order_book_lib.Order_book
+open Order_types
 open Order_book_lib.Market_conditions
 open Order_book_lib.Matching_engine
-open Order_book_lib.User
+(* open Order_book_lib.User *)
+open Database.Db
 open Printer
 
 (* global variables to store the order books and current user ID *)
-let order_books : (string, order_book) Hashtbl.t = Hashtbl.create 16
+(* let order_books : (string, order_book) Hashtbl.t = Hashtbl.create 16
 let curr_user_id = ref None
 let available_securities = [
   "AAPL"; "MSFT"; "GOOGL"; "AMZN"; "TSLA"; 
@@ -382,6 +384,242 @@ let run_cli () =
     | "5" -> view_my_orders (); loop ()
     | "6" -> view_bal (); loop ()
     | "7" -> Printf.printf "Goodbye! Thanks for trading!\n"
+    | _ -> Printf.printf "Invalid option. Please type a valid number.\n"; loop ()
+  in loop ()
+
+(* run as executable *)
+let () = run_cli () *)
+
+let curr_user_id = ref None
+let available_securities = [
+  "AAPL"; "MSFT"; "GOOGL"; "AMZN"; "TSLA"; 
+  "META"; "NVDA"; "RKLB"; "RIVN"; "PLTR"
+]
+
+let current_time () = Unix.gettimeofday ()
+
+let get_base_price (security : string) : float = match security with
+  | "AAPL" -> 150.0 | "MSFT" -> 330.0 | "GOOGL" -> 140.0
+  | "AMZN" -> 180.0 | "TSLA" -> 300.0 | "META" -> 300.0
+  | "NVDA" -> 400.0 | "RKLB" -> 20.0 | "RIVN" -> 15.0
+  | "PLTR" -> 53.0 | _ -> 100.0
+
+let create_dynamic_market_conditions (security : string) : market_conditions =
+  let base_price = get_base_price security in
+  let spread = base_price *. 0.10 in (* 10% of base price, can be changed *)
+  create_market_conditions spread 0.5
+
+let get_or_create_order_book security =
+  create_order_book security
+
+let place_order security order_type buy_sell qty user_id =
+  let _order_book = get_or_create_order_book security in
+  let price = match order_type with
+    | Market -> 0.0
+    | Limit { price; _ } -> price
+    | Margin price -> price
+  in
+  ignore (create_order ~id:0 ~user_id ~security ~order_type ~buy_sell ~qty ~price)
+
+let rec get_order_direction () =
+  Printf.printf "Enter the order direction (Buy/Sell): ";
+  match read_line () with
+  | "Buy" -> Buy
+  | "Sell" -> Sell
+  | _ -> 
+    Printf.printf "Invalid order direction. Please enter either Buy or Sell.\n";
+    get_order_direction ()
+
+let rec get_order_type () =
+  Printf.printf "Enter the order type (Market/Limit/Margin): ";
+  match String.lowercase_ascii (read_line ()) with
+  | "market" -> Market
+  | "limit" ->
+    Printf.printf "Enter the price: ";
+    let curr_price = float_of_string (read_line ()) in
+    Limit { price = curr_price; expiration = Some (current_time () +. 3600.0) }
+  | "margin" ->
+    Printf.printf "Enter the price: ";
+    Margin (float_of_string (read_line ()))
+  | _ -> 
+    Printf.printf "Invalid order type. Please enter Market, Limit, or Margin.\n";
+    get_order_type ()
+
+let rec get_quantity () =
+  Printf.printf "Enter the quantity: ";
+  try 
+    let qty = float_of_string (read_line ()) in
+    if qty <= 0.0 then begin
+      Printf.printf "Quantity must be positive.\n";
+      get_quantity ()
+    end else qty
+  with Failure _ -> 
+    Printf.printf "Invalid quantity. Please enter a valid number.\n";
+    get_quantity ()
+
+let set_user_id () = 
+  match !curr_user_id with
+  | Some id -> Printf.printf "User ID already set to %d\n" id
+  | None ->
+    Printf.printf "Enter your user ID: ";
+    let user_id = int_of_string (read_line ()) in
+    curr_user_id := Some user_id;
+    match get_user_balance user_id with
+    | None -> 
+      ignore (create_user_in_db ~id:user_id ~name:"" ~balance:1000.0);
+      Printf.printf "New user created with initial balance of $1000.00\n"
+    | Some _ -> 
+      Printf.printf "Welcome back!\n"
+
+let place_order_interactive () =
+  match !curr_user_id with
+  | None -> Printf.printf "Please set your user ID first.\n"
+  | Some user_id ->
+    Printf.printf "Enter the security (eg. AAPL): ";
+    let security = read_line () in
+    let buy_sell = get_order_direction () in
+    let order_type = get_order_type () in
+    let qty = get_quantity () in
+    
+    (* check if we can afford it *)
+    let estimated_cost = match order_type with
+    | Market -> 
+      let ob = get_or_create_order_book security in
+      if buy_sell = Buy then
+        match get_best_ask ob with
+        | Some price -> price *. qty
+        | None -> 0.0
+      else 0.0
+    | Limit { price; _ } -> if buy_sell = Buy then price *. qty else 0.0
+    | Margin price -> price *. 0.5
+    in
+    match get_user_balance user_id with
+    | Some balance when buy_sell = Buy && estimated_cost > balance ->
+      Printf.printf "Insufficient funds. Required: $%.2f, Available: $%.2f\n"  estimated_cost balance
+    | Some _ -> place_order security order_type buy_sell qty user_id
+    | None -> Printf.printf "Can't place order, user not found.\n"
+
+let cancel_order () = 
+  match !curr_user_id with
+  | None -> Printf.printf "Please set your user ID first!\n"
+  | Some user_id ->
+    print_user_orders user_id;
+    Printf.printf "Enter the order ID to cancel (or 0 to go back): ";
+    let order_id = int_of_string (read_line ()) in
+    if order_id = 0 then Printf.printf "Cancellation aborted.\n"
+    else ignore (cancel_order order_id)
+
+let view_book () = 
+  Printf.printf "Enter the security: ";
+  let security = read_line () in
+  let ob = get_or_create_order_book security in
+  print_orders ob
+
+let view_my_orders () = 
+  match !curr_user_id with
+  | None -> Printf.printf "Please set your user ID first.\n"
+  | Some user_id -> print_user_orders user_id
+
+let view_bal () = 
+  match !curr_user_id with
+  | None -> Printf.printf "Please set your user ID first.\n"
+  | Some user_id ->
+    match get_user_balance user_id with
+    | Some balance -> 
+      Printf.printf "Cash balance: $%.2f\n" balance;
+      Printf.printf "\nPositions:\n";
+      (match get_positions_by_user user_id with
+      | Ok result ->
+        for i = 0 to result#ntuples - 1 do
+          Printf.printf "%s: %s shares\n"
+            (result#getvalue i 1)  (* security *)
+            (result#getvalue i 2)  (* quantity *)
+        done
+      | Error _ -> Printf.printf "Error fetching positions\n")
+    | None -> Printf.printf "User not found\n"
+
+let view_security_info () =
+  Printf.printf "Enter the security: ";
+  let security = read_line () in
+  print_security_info security
+
+let view_recent_trades () =
+  Printf.printf "Enter the security: ";
+  let security = read_line () in
+  print_recent_trades security
+
+let continuous_matching_thread () =
+  (* continuously match orders as long as there are any *)
+  while true do
+    List.iter (fun security ->
+      let ob = get_or_create_order_book security in
+      let market_conditions = create_dynamic_market_conditions security in
+      let trades = match_orders ob market_conditions in
+      List.iter (fun trade -> print_trade trade security) trades
+    ) available_securities;
+    Unix.sleepf 0.001
+  done
+
+let random_price base = base +. (Random.float 10.0) -. 5.0
+
+let initialize_random_orders security =
+  let base_price = get_base_price security in
+  let create_random_order id is_buy =
+    let price = random_price (if is_buy then base_price else base_price +. 1.0) in
+    let order_id = if is_buy then id else id + 100 in
+    let buy_sell = if is_buy then Buy else Sell in
+    let qty = Random.float 100.0 in
+    let order_type = Limit { price = price; expiration = Some (current_time () +. 3600.0) } in
+    ignore (create_order ~id:order_id ~user_id:(-id) ~security ~order_type ~buy_sell ~qty ~price)
+  in
+  for i = 1 to 5 do
+    create_random_order i true;  (* buy order *)
+    create_random_order i false  (* sell order *)
+  done
+
+let initialize_system () =
+  Random.self_init ();
+  (* choose 2-3 random securities to trade *)
+  let num_securities = 2 + Random.int 2 in
+  let selected = List.sort_uniq String.compare (
+    List.init num_securities (fun _ -> 
+      List.nth available_securities (Random.int (List.length available_securities))
+    )) in
+  (* have some random initial orders, then match trades *)
+  List.iter (fun security ->
+    initialize_random_orders security;
+    Printf.printf "Market opened for %s\n" security
+  ) selected;
+  match create_user_in_db ~id:1 ~name:"" ~balance:1000.0 with
+  | Ok _ -> Printf.printf "Initial balance set to $1000.00\n"
+  | Error e -> Printf.printf "Error creating initial user: %s\n" e
+
+let run_cli () = 
+  initialize_system ();
+  let _ = Thread.create continuous_matching_thread () in
+  let rec loop () =
+    Printf.printf "\n------------------------\n";
+    Printf.printf "Select an option:\n";
+    Printf.printf "1. Set user ID\n";
+    Printf.printf "2. Place order\n";
+    Printf.printf "3. Cancel order\n";
+    Printf.printf "4. View order book\n";
+    Printf.printf "5. View open orders\n";
+    Printf.printf "6. View my balance\n";
+    Printf.printf "7. View security info\n";
+    Printf.printf "8. View recent trades\n";
+    Printf.printf "9. Exit\n";
+    Printf.printf "------------------------\n";
+    match read_line () with
+    | "1" -> set_user_id (); loop ()
+    | "2" -> place_order_interactive (); loop ()
+    | "3" -> cancel_order (); loop ()
+    | "4" -> view_book (); loop ()
+    | "5" -> view_my_orders (); loop ()
+    | "6" -> view_bal (); loop ()
+    | "7" -> view_security_info (); loop ()
+    | "8" -> view_recent_trades (); loop ()
+    | "9" -> Printf.printf "Goodbye! Thanks for trading!\n"
     | _ -> Printf.printf "Invalid option. Please type a valid number.\n"; loop ()
   in loop ()
 

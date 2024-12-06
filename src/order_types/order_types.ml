@@ -14,3 +14,20 @@ type order = {
   timestamp : float;        (* timestamp at which order was placed *)
   user_id : int;            (* ID of the user who placed the order *)
 }
+
+type db_order = {
+  id: int;
+  user_id: int;
+  security: string;
+  order_type: order_type;
+  buy_sell: buy_sell;
+  qty: float;
+}
+
+type trade = {
+  buy_order_id : int;
+  sell_order_id : int;
+  security : string;
+  qty : float;
+  price : float;
+}

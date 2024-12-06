@@ -2,4 +2,18 @@
  (name cli)
  (public_name order_book_app)
  (modules cli printer)
- (libraries fpse-order-book.order_book_lib threads))
+ (libraries fpse-order-book.order_book_lib
+            fpse-order-book.database
+            threads
+            postgresql)
+ (link_flags
+  (-cclib -Wl,-rpath,/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14
+   -cclib -L/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14
+   -cclib -lpq)))
+
+(executable
+ (name test_db_conn)
+ (modules test_db_conn)
+ (libraries fpse-order-book.database postgresql)
+ (link_flags
+  (-cclib -Wl,-rpath,/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14)))

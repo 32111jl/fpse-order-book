@@ -1,6 +1,7 @@
-open Order
+open Order_types
+open Database.Db
 
-module PriceMap = Map.Make(struct
+(* module PriceMap = Map.Make(struct
   type t = float
   let compare = Float.compare
 end)
@@ -181,4 +182,139 @@ let remove_expired_orders (order_book : order_book) (curr_time : float) =
   order_book.best_ask <- None
 
 let check_order_exists (order_book : order_book) (order_id : int) =
-  Hashtbl.mem order_book.order_ids order_id
+  Hashtbl.mem order_book.order_ids order_id *)
+  
+type order_book = {
+  security : string;
+  mutable best_bid : float option;
+  mutable best_ask : float option;
+}
+
+let create_order_book security = 
+  {
+    security = security;
+    best_bid = None;
+    best_ask = None;
+  }
+
+let get_security order_book = order_book.security
+
+let get_price (order : Order_types.db_order) : float option = 
+  match order.order_type with
+  | Market -> None
+  | Limit { price; _ } -> Some price
+  | Margin price -> Some price
+
+let get_best_bid (order_book : order_book) : float option = 
+  match order_book.best_bid with
+  | Some _ as bid -> bid
+  | None ->
+    let query = "
+      SELECT price FROM orders 
+      WHERE security = $1 
+      AND buy_sell = 'BUY' 
+      AND status = 'ACTIVE' 
+      AND order_type != 'MARKET'
+      ORDER BY price DESC 
+      LIMIT 1" in
+    match execute_query query [| order_book.security |] with
+    | Ok result when result#ntuples > 0 ->
+      let price = float_of_string (result#getvalue 0 0) in
+      order_book.best_bid <- Some price;
+      Some price
+    | _ -> None
+
+let get_best_ask (order_book : order_book) : float option = 
+  match order_book.best_ask with
+  | Some _ as ask -> ask
+  | None ->
+    let query = "
+      SELECT price FROM orders 
+      WHERE security = $1 
+      AND buy_sell = 'SELL' 
+      AND status = 'ACTIVE' 
+      AND order_type != 'MARKET'
+      ORDER BY price ASC 
+      LIMIT 1" in
+    match execute_query query [| order_book.security |] with
+    | Ok result when result#ntuples > 0 ->
+      let price = float_of_string (result#getvalue 0 0) in
+      order_book.best_ask <- Some price;
+      Some price
+    | _ -> None
+
+let get_bids (order_book : order_book) : Order_types.db_order list = 
+  let query = "
+    SELECT * FROM orders 
+    WHERE security = $1 
+    AND buy_sell = 'BUY' 
+    AND status = 'ACTIVE'
+    ORDER BY 
+      CASE WHEN order_type = 'MARKET' THEN 1 ELSE 0 END,
+      price DESC" in
+  match execute_query query [| order_book.security |] with
+  | Ok result ->
+    let orders = ref [] in
+    for i = 0 to result#ntuples - 1 do
+      let id = int_of_string (result#getvalue i 0) in
+      let user_id = int_of_string (result#getvalue i 1) in
+      let qty = float_of_string (result#getvalue i 5) in
+      let price = float_of_string (result#getvalue i 6) in
+      let order_type = match result#getvalue i 3 with
+        | "MARKET" -> Market
+        | "LIMIT" -> Limit { price; expiration = None }
+        | "MARGIN" -> Margin price
+        | _ -> failwith "Invalid order type"
+      in
+      orders := { id; user_id; security = order_book.security; 
+                  order_type; buy_sell = Buy; qty } :: !orders
+    done;
+    !orders
+  | Error _ -> []
+
+let get_asks (order_book : order_book) : Order_types.db_order list = 
+  let query = "
+    SELECT * FROM orders 
+    WHERE security = $1 
+    AND buy_sell = 'SELL' 
+    AND status = 'ACTIVE'
+    ORDER BY 
+      CASE WHEN order_type = 'MARKET' THEN 1 ELSE 0 END,
+      price ASC" in
+  match execute_query query [| order_book.security |] with
+  | Ok result ->
+    let orders = ref [] in
+    for i = 0 to result#ntuples - 1 do
+      let id = int_of_string (result#getvalue i 0) in
+      let user_id = int_of_string (result#getvalue i 1) in
+      let qty = float_of_string (result#getvalue i 5) in
+      let price = float_of_string (result#getvalue i 6) in
+      let order_type = match result#getvalue i 3 with
+        | "MARKET" -> Market
+        | "LIMIT" -> Limit { price; expiration = None }
+        | "MARGIN" -> Margin price
+        | _ -> failwith "Invalid order type"
+      in
+      orders := { id; user_id; security = order_book.security;
+                  order_type; buy_sell = Sell; qty } :: !orders
+    done;
+    !orders
+  | Error _ -> []
+
+let add_order (order_book : order_book) (order : Order_types.db_order) = 
+  create_order ~id:order.id
+                ~user_id:order.user_id
+                ~security:order_book.security
+                ~order_type:order.order_type
+                ~buy_sell:order.buy_sell
+                ~qty:order.qty
+                ~price:(match get_price order with Some p -> p | None -> 0.0)
+
+let remove_order _order_book order_id = cancel_order order_id
+
+let remove_expired_orders _order_book curr_time = remove_expired_orders curr_time
+
+let check_order_exists _order_book order_id =
+  match get_order order_id with
+  | Ok result -> result#ntuples > 0
+  | Error _ -> false
