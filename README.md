@@ -58,6 +58,6 @@ Note that to test, the database command becomes `psql -U ob1 -d order_book -f te
 ### Testing
 Current `bisect-ppx` coverage:  
 `src/order_book/market_conditions.ml` - 100%  
-`src/order_book/matching_engine.ml` - 72%  
-`src/order_book/order_book.ml` - 83%  
+`src/order_book/matching_engine.ml` - 80%  
+`src/order_book/order_book.ml` - 86%  
 (With the in-memory implementation, it was 92.16%.)
