@@ -122,14 +122,35 @@ let get_asks (order_book : order_book) : Utils.Order_types.db_order list =
     List.rev !orders
   | Error _ -> []
 
-let add_order (order_book : order_book) (order : Utils.Order_types.db_order) = 
-  create_order order.id order.user_id order_book.security order.order_type order.buy_sell order.qty (match get_price order with Some p -> p | None -> 0.0)
+let add_order (book : order_book) (order : Utils.Order_types.db_order) = 
+  match create_order order.id order.user_id book.security order.order_type order.buy_sell order.qty (match get_price order with Some p -> p | None -> 0.0) with
+  | Ok _ ->
+    (* immediately update best bid/ask *)
+    (match order.order_type, order.buy_sell with
+    | Limit { price; _ }, Buy | Margin price, Buy ->
+      (match book.best_bid with
+      | Some best_bid when price > best_bid -> book.best_bid <- Some price
+      | None -> book.best_bid <- Some price
+      | _ -> ())
+      (* if price > (Option.value ~default:0.0 book.best_bid) then book.best_bid <- Some price *)
+    | Limit { price; _ }, Sell | Margin price, Sell ->
+      (match book.best_ask with
+      | Some best_ask when price < best_ask -> book.best_ask <- Some price
+      | None -> book.best_ask <- Some price
+      | _ -> ())
+      (* if price < (Option.value ~default:0.0 book.best_ask) then book.best_ask <- Some price *)
+    | _ -> ()); (* no need to update best bid/ask for market orders *)
+    Ok ()
+  | Error e -> Error e
 
 let remove_order _order_book (order_id : int) = cancel_order order_id
 
 let remove_expired_orders _order_book (curr_time : float) = remove_expired_orders curr_time
 
 let check_order_exists _order_book (order_id : int) =
-  match get_order order_id with
-  | Ok result -> result#ntuples > 0
+  let query = "SELECT COUNT(*) FROM orders 
+              WHERE id = $1 AND status IN ('ACTIVE', 'PARTIAL')"
+  in
+  match execute_query query [| string_of_int order_id |] with
+  | Ok result -> result#ntuples > 0 && (int_of_string (result#getvalue 0 0)) > 0
   | Error _ -> false

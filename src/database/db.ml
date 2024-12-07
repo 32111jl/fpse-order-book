@@ -41,7 +41,7 @@ let with_connection f =
     conn#finish;
     Error (Printexc.to_string e)
 
-let execute_query (query : string) (params : string array)   =
+let execute_query (query : string) (params : string array)  =
   (* match get_connection () with
   | Some conn -> 
     begin try
@@ -84,12 +84,15 @@ let update_user_balance (user_id : int) (delta : float) =
 
 (* order-related operations *)
 let create_order (id : int) (user_id : int) (security : string) (order_type : Order_types.order_type) (buy_sell : Order_types.buy_sell) (qty : float) (price : float) =
+  let expiration_time = match order_type with
+  | Limit { expiration = Some exp; _ } -> string_of_float exp
+  | _ -> "NULL"
+  in
   let query = "
     INSERT INTO orders (
-      id, user_id, security, order_type, 
-      buy_sell, quantity, price, status
+      id, user_id, security, order_type, buy_sell, quantity, price, status, expiration_time
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, 'ACTIVE'
+      $1, $2, $3, $4, $5, $6, $7, 'ACTIVE', NULLIF($8, 'NULL')::float
     ) RETURNING id" in
   let order_type_str = order_type_to_string order_type in
   let buy_sell_str = buy_sell_to_string buy_sell in
@@ -100,7 +103,8 @@ let create_order (id : int) (user_id : int) (security : string) (order_type : Or
     order_type_str;
     buy_sell_str;
     string_of_float qty;
-    string_of_float price
+    string_of_float price;
+    expiration_time
   |] in
   execute_query query params
 
@@ -129,7 +133,9 @@ let get_active_orders_given_security (security : string) =
   execute_query query [| security |]
 
 let remove_expired_orders (current_time : float) =
-  let query = "UPDATE orders SET status = 'EXPIRED' WHERE expiration_time < $1 AND status IN ('ACTIVE', 'PARTIAL')" in
+  let query = "UPDATE orders SET status = 'EXPIRED'
+              WHERE expiration_time IS NOT NULL AND expiration_time < $1
+              AND status IN ('ACTIVE', 'PARTIAL')" in
   execute_query query [| string_of_float current_time |]
 
 let cancel_order (order_id : int) =
@@ -171,8 +177,8 @@ let get_positions_value (user_id : int) =
 
 (* trade operations *)
 let record_trade ~buy_order_id ~sell_order_id ~security ~qty ~price =
-  let query = "INSERT INTO trades (id, buy_order_id, sell_order_id, security, quantity, price)
-                VALUES ($1, $2, $3, $4, $5, $6)" in
+  let query = "INSERT INTO trades (buy_order_id, sell_order_id, security, quantity, price)
+                VALUES ($1, $2, $3, $4, $5)" in
   execute_query query [| 
     string_of_int buy_order_id; 
     string_of_int sell_order_id; 
@@ -182,7 +188,10 @@ let record_trade ~buy_order_id ~sell_order_id ~security ~qty ~price =
   |]
 
 let get_trade_history (user_id : int) =
-  let query = "SELECT * FROM trades WHERE buy_order_id = $1 OR sell_order_id = $1" in
+  let query = "SELECT * FROM trades t
+                JOIN orders bo ON t.buy_order_id = bo.id
+                JOIN orders so ON t.sell_order_id = so.id
+                WHERE bo.user_id = $1 OR so.user_id = $1" in
   execute_query query [| string_of_int user_id |]
 
 let get_trades_by_security (security : string) =

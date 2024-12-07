@@ -4,15 +4,31 @@ open Database.Db
 open Utils
 open Utils.Order_types
 
-let check_spread (order_book : order_book) (market_conditions : market_conditions) : bool =
-  match get_best_bid order_book, get_best_ask order_book with
+let check_spread (book : order_book) (market_conditions : market_conditions) : bool =
+  (* match book.best_bid, book.best_ask with
   | Some best_bid, Some best_ask -> 
-    (match get_bids order_book, get_asks order_book with
+    (match get_bids book, get_asks book with
     | (bid :: _), (ask :: _) ->
       (match bid.order_type, ask.order_type with
-      | Market, _ | _, Market -> true
-      | _ -> best_bid >= best_ask && (best_ask -. best_bid <= market_conditions.bid_ask_spread))
+      | Market, _ | _, Market ->
+        Printf.printf "Market order spread check\n";
+        true
+      | _ ->
+        Printf.printf "Limit order spread check\n";
+        (best_bid < best_ask) && (best_ask -. best_bid <= market_conditions.bid_ask_spread))
     | _ -> false)
+  | _ ->
+    Printf.printf "No best bid/ask\n";
+    false *)
+  match get_bids book, get_asks book with
+  | (bid :: _), (ask :: _) ->
+    (match bid.order_type, ask.order_type with
+    | Market, _ | _, Market -> true
+    | _ -> 
+      match book.best_bid, book.best_ask with
+      | Some best_bid, Some best_ask -> (* or best bid >= best ask AND _ ??? *)
+        best_bid >= best_ask || (best_ask -. best_bid <= market_conditions.bid_ask_spread)
+      | _ -> false)
   | _ -> false
 
 let get_trade_price (buy_order : Order_types.db_order) (sell_order : Order_types.db_order) : float =
@@ -24,7 +40,6 @@ let get_trade_price (buy_order : Order_types.db_order) (sell_order : Order_types
 
 (* executes trade between two orders, updates database accordingly *)
 let execute_trade (buy_order : Order_types.db_order) (sell_order : Order_types.db_order) : (float * float, string) result =
-  (* Printf.printf "Executing trade between %d and %d\n" buy_order.id sell_order.id; *)
   let trade_qty = Float.min buy_order.qty sell_order.qty in
   let trade_price = get_trade_price buy_order sell_order in
   let total_cost = trade_price *. trade_qty in
@@ -59,11 +74,15 @@ let match_orders (order_book : order_book) (_market_conditions : market_conditio
     | best_bid :: _, best_ask :: _ ->
       let can_match = match best_bid.order_type, best_ask.order_type with
       | Market, _ | _, Market -> true
-      | Limit { price = bid_price; _ }, Limit { price = ask_price; _ } -> bid_price >= ask_price
+      | _ -> 
+        match order_book.best_bid, order_book.best_ask with
+        | Some bid_price, Some ask_price -> bid_price >= ask_price
+        | _ -> false
+      (* | Limit { price = bid_price; _ }, Limit { price = ask_price; _ } -> bid_price >= ask_price
       | Margin bid_price, Limit { price = ask_price; _ } 
       | Limit { price = bid_price; _ }, Margin ask_price 
       | Margin bid_price, Margin ask_price ->
-        bid_price >= ask_price
+        bid_price >= ask_price *)
       in
       if can_match then
         (match execute_trade best_bid best_ask with

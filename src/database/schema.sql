@@ -34,15 +34,15 @@ CREATE TABLE IF NOT EXISTS orders (
   buy_sell TEXT, -- 'BUY' or 'SELL'
   quantity FLOAT,
   price FLOAT,
-  status TEXT DEFAULT 'ACTIVE', -- 'ACTIVE', 'FILLED', 'PARTIAL'
+  status TEXT DEFAULT 'ACTIVE', -- 'ACTIVE', 'FILLED', 'PARTIAL', 'EXPIRED', 'CANCELLED'
   expiration_time FLOAT
 );
 
 -- trades table
 CREATE TABLE IF NOT EXISTS trades (
-  id INTEGER PRIMARY KEY,
-  buy_order_id INTEGER REFERENCES orders(id),
-  sell_order_id INTEGER REFERENCES orders(id),
+  id SERIAL PRIMARY KEY, -- SERIAL auto-increments for us
+  buy_order_id INTEGER REFERENCES orders(id), -- buyer's id
+  sell_order_id INTEGER REFERENCES orders(id), -- seller's id
   security TEXT,
   quantity FLOAT,
   price FLOAT
