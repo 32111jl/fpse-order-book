@@ -129,7 +129,7 @@ let get_active_orders_given_security (security : string) =
   execute_query query [| security |]
 
 let remove_expired_orders (current_time : float) =
-  let query = "UPDATE orders SET status = 'EXPIRED' WHERE expiration_time < $1 AND status = 'ACTIVE'" in
+  let query = "UPDATE orders SET status = 'EXPIRED' WHERE expiration_time < $1 AND status IN ('ACTIVE', 'PARTIAL')" in
   execute_query query [| string_of_float current_time |]
 
 let cancel_order (order_id : int) =

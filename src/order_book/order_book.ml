@@ -1,4 +1,5 @@
 open Database.Db
+open Utils
 open Utils.Order_types
 
 type order_book = {
@@ -35,7 +36,7 @@ let get_best_bid (order_book : order_book) : float option =
       LIMIT 1" in
     match execute_query query [| order_book.security |] with
     | Ok result when result#ntuples > 0 ->
-      let price = float_of_string (result#getvalue 0 0) in
+      let price = round_price (float_of_string (result#getvalue 0 0)) in
       order_book.best_bid <- Some price;
       Some price
     | _ -> None
@@ -54,7 +55,7 @@ let get_best_ask (order_book : order_book) : float option =
       LIMIT 1" in
     match execute_query query [| order_book.security |] with
     | Ok result when result#ntuples > 0 ->
-      let price = float_of_string (result#getvalue 0 0) in
+      let price = round_price (float_of_string (result#getvalue 0 0)) in
       order_book.best_ask <- Some price;
       Some price
     | _ -> None
@@ -76,8 +77,8 @@ let get_bids (order_book : order_book) : Utils.Order_types.db_order list =
     for i = 0 to result#ntuples - 1 do
       let id = int_of_string (result#getvalue i 0) in
       let user_id = int_of_string (result#getvalue i 1) in
-      let qty = float_of_string (result#getvalue i 5) in
-      let price = float_of_string (result#getvalue i 6) in
+      let qty = round_quantity (float_of_string (result#getvalue i 5)) in
+      let price = round_price (float_of_string (result#getvalue i 6)) in
       let order_type = match result#getvalue i 3 with
         | "MARKET" -> Market
         | "LIMIT" -> Limit { price; expiration = None }
@@ -107,8 +108,8 @@ let get_asks (order_book : order_book) : Utils.Order_types.db_order list =
     for i = 0 to result#ntuples - 1 do
       let id = int_of_string (result#getvalue i 0) in
       let user_id = int_of_string (result#getvalue i 1) in
-      let qty = float_of_string (result#getvalue i 5) in
-      let price = float_of_string (result#getvalue i 6) in
+      let qty = round_quantity (float_of_string (result#getvalue i 5)) in
+      let price = round_price (float_of_string (result#getvalue i 6)) in
       let order_type = match result#getvalue i 3 with
         | "MARKET" -> Market
         | "LIMIT" -> Limit { price; expiration = None }

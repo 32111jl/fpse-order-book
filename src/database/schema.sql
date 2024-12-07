@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS positions (
   PRIMARY KEY (user_id, security)
 );
 
--- Orders table
+-- orders table
 CREATE TABLE IF NOT EXISTS orders (
   id INTEGER PRIMARY KEY,
   user_id INTEGER REFERENCES users(id),
@@ -34,11 +34,11 @@ CREATE TABLE IF NOT EXISTS orders (
   buy_sell TEXT, -- 'BUY' or 'SELL'
   quantity FLOAT,
   price FLOAT,
-  status TEXT DEFAULT 'ACTIVE', -- 'ACTIVE', 'FILLED', 'CANCELLED'
+  status TEXT DEFAULT 'ACTIVE', -- 'ACTIVE', 'FILLED', 'PARTIAL'
   expiration_time FLOAT
 );
 
--- Trades table
+-- trades table
 CREATE TABLE IF NOT EXISTS trades (
   id INTEGER PRIMARY KEY,
   buy_order_id INTEGER REFERENCES orders(id),

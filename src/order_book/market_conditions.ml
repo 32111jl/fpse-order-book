@@ -6,7 +6,7 @@ type market_conditions = {
 
 
 let create_market_conditions (bid_ask_spread : float) (margin_rate : float) = 
-  {bid_ask_spread = bid_ask_spread; margin_rate = margin_rate }
+  { bid_ask_spread = bid_ask_spread; margin_rate = margin_rate }
 
 (* let check_spread_conditions (market_conditions : market_conditions) (best_bid : float) (best_ask : float) = 
   best_ask -. best_bid <= market_conditions.bid_ask_spread *)
