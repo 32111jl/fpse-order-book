@@ -1,8 +1,12 @@
 (test
- (name ob_tests)
- (modules ob_tests)
+ (name tests)
  (libraries fpse-order-book.order_book_lib
-           core
+          fpse-order-book.database
+          fpse-order-book.utils
+          core
           ounit2
           core_unix
-          qcheck))
+          qcheck)
+ (link_flags
+  (-cclib -Wl,-rpath,/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14
+   -cclib -L/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14)))

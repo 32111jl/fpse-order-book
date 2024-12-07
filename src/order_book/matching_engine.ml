@@ -11,7 +11,7 @@ let check_spread (order_book : order_book) (market_conditions : market_condition
     | (bid :: _), (ask :: _) ->
       (match bid.order_type, ask.order_type with
       | Market, _ | _, Market -> true
-      | _ -> best_bid >= best_ask && check_spread_conditions market_conditions best_bid best_ask)
+      | _ -> best_bid >= best_ask && (best_ask -. best_bid <= market_conditions.bid_ask_spread))
     | _ -> false)
   | _ -> false
 

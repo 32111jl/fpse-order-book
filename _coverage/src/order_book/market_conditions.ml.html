@@ -33,7 +33,7 @@
 <a id="L9"></a><span class="visited"> </span>
 <a id="L10"></a><span > </span>
 <a id="L11"></a><span > </span>
-<a id="L12"></a><span class="visited"> </span>
+<a id="L12"></a><span > </span>
 <a id="L13"></a><span > </span>
 <a id="L14"></a><span > </span>
 <a id="L15"></a><span class="visited"> </span>
@@ -58,19 +58,19 @@
 <a href="#L15">15</a>
 </pre>
 <pre><code class="ocaml">
-type t = {
+type market_conditions = {
   bid_ask_spread : float;
   margin_rate : float;
 }
 
 
-let create_market_conditions bid_ask_spread margin_rate = 
-  <span data-count="7">{</span>bid_ask_spread = bid_ask_spread; margin_rate = margin_rate }
+let create_market_conditions (bid_ask_spread : float) (margin_rate : float) = 
+  <span data-count="9">{</span>bid_ask_spread = bid_ask_spread; margin_rate = margin_rate }
 
-let check_spread_conditions market_conditions best_bid best_ask = 
-  <span data-count="6">b</span>est_ask -. best_bid &lt;= market_conditions.bid_ask_spread
+(* let check_spread_conditions (market_conditions : market_conditions) (best_bid : float) (best_ask : float) = 
+  best_ask -. best_bid &lt;= market_conditions.bid_ask_spread *)
 
-let get_margin_rate market_conditions = 
+let get_margin_rate (market_conditions : market_conditions) = 
   <span data-count="2">m</span>arket_conditions.margin_rate
 </code></pre>
       </div>

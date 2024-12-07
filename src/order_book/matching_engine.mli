@@ -11,3 +11,6 @@ val check_spread : Order_book.order_book -> Market_conditions.market_conditions 
 
 val execute_trade : Utils.Order_types.db_order -> Utils.Order_types.db_order -> (float * float, string) result
 (** [execute_trade buy_order sell_order] executes the buy and sell orders, returning the trade quantity. *)
+
+val get_trade_price : Utils.Order_types.db_order -> Utils.Order_types.db_order -> float
+(** [get_trade_price buy_order sell_order] returns the trade price. *)

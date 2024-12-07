@@ -3,14 +3,10 @@ open OUnit2
 (* open QCheck *)
 open Order_book_lib.Order
 open Order_book_lib.Order_book
-open Order_types
+open Utils.Order_types
 open Order_book_lib.Market_conditions
 open Order_book_lib.Matching_engine
-
-let get_price_helper order = 
-  match get_price order with
-  | None -> assert_failure "Expected order to have a price."
-  | Some price -> price
+open Database.Db
 
 module OrderTests = struct
 
