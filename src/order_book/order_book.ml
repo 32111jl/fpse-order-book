@@ -7,13 +7,13 @@ type order_book = {
   mutable best_ask : float option;
 }
 
-let create_order_book security = {
+let create_order_book (security : string) = {
   security = security;
   best_bid = None;
   best_ask = None;
 }
 
-let get_security order_book = order_book.security
+let get_security (order_book : order_book) : string = order_book.security
 
 let get_price (order : Utils.Order_types.db_order) : float option = 
   match order.order_type with
@@ -29,7 +29,7 @@ let get_best_bid (order_book : order_book) : float option =
       SELECT price FROM orders 
       WHERE security = $1 
       AND buy_sell = 'BUY' 
-      AND status = 'ACTIVE' 
+      AND status IN ('ACTIVE', 'PARTIAL')
       AND order_type != 'MARKET'
       ORDER BY price DESC 
       LIMIT 1" in
@@ -48,7 +48,7 @@ let get_best_ask (order_book : order_book) : float option =
       SELECT price FROM orders 
       WHERE security = $1 
       AND buy_sell = 'SELL' 
-      AND status = 'ACTIVE' 
+      AND status IN ('ACTIVE', 'PARTIAL')
       AND order_type != 'MARKET'
       ORDER BY price ASC 
       LIMIT 1" in
@@ -64,10 +64,12 @@ let get_bids (order_book : order_book) : Utils.Order_types.db_order list =
     SELECT * FROM orders 
     WHERE security = $1 
     AND buy_sell = 'BUY' 
-    AND status = 'ACTIVE'
+    AND status IN ('ACTIVE', 'PARTIAL')
     ORDER BY 
-      CASE WHEN order_type = 'MARKET' THEN 1 ELSE 0 END,
-      price DESC" in
+      CASE WHEN order_type = 'MARKET' THEN 0 ELSE 1 END,
+      price DESC,
+      id ASC
+      FOR UPDATE" in
   match execute_query query [| order_book.security |] with
   | Ok result ->
     let orders = ref [] in
@@ -85,7 +87,7 @@ let get_bids (order_book : order_book) : Utils.Order_types.db_order list =
       orders := { id; user_id; security = order_book.security; 
                   order_type; buy_sell = Buy; qty } :: !orders
     done;
-    !orders
+    List.rev !orders
   | Error _ -> []
 
 let get_asks (order_book : order_book) : Utils.Order_types.db_order list = 
@@ -93,10 +95,12 @@ let get_asks (order_book : order_book) : Utils.Order_types.db_order list =
     SELECT * FROM orders 
     WHERE security = $1 
     AND buy_sell = 'SELL' 
-    AND status = 'ACTIVE'
+    AND status IN ('ACTIVE', 'PARTIAL')
     ORDER BY 
-      CASE WHEN order_type = 'MARKET' THEN 1 ELSE 0 END,
-      price ASC" in
+      CASE WHEN order_type = 'MARKET' THEN 0 ELSE 1 END,
+      price ASC,
+      id ASC
+      FOR UPDATE" in (* id ASC sorts by order id, for update locks the rows, avoids race conditions *)
   match execute_query query [| order_book.security |] with
   | Ok result ->
     let orders = ref [] in
@@ -114,23 +118,17 @@ let get_asks (order_book : order_book) : Utils.Order_types.db_order list =
       orders := { id; user_id; security = order_book.security;
                   order_type; buy_sell = Sell; qty } :: !orders
     done;
-    !orders
+    List.rev !orders
   | Error _ -> []
 
 let add_order (order_book : order_book) (order : Utils.Order_types.db_order) = 
-  create_order ~id:order.id
-                ~user_id:order.user_id
-                ~security:order_book.security
-                ~order_type:order.order_type
-                ~buy_sell:order.buy_sell
-                ~qty:order.qty
-                ~price:(match get_price order with Some p -> p | None -> 0.0)
+  create_order order.id order.user_id order_book.security order.order_type order.buy_sell order.qty (match get_price order with Some p -> p | None -> 0.0)
 
-let remove_order _order_book order_id = cancel_order order_id
+let remove_order _order_book (order_id : int) = cancel_order order_id
 
-let remove_expired_orders _order_book curr_time = remove_expired_orders curr_time
+let remove_expired_orders _order_book (curr_time : float) = remove_expired_orders curr_time
 
-let check_order_exists _order_book order_id =
+let check_order_exists _order_book (order_id : int) =
   match get_order order_id with
   | Ok result -> result#ntuples > 0
   | Error _ -> false

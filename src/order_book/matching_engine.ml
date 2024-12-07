@@ -24,7 +24,7 @@ let get_trade_price (buy_order : Order_types.db_order) (sell_order : Order_types
 
 (* executes trade between two orders, updates database accordingly *)
 let execute_trade (buy_order : Order_types.db_order) (sell_order : Order_types.db_order) : (float * float, string) result =
-  Printf.printf "Executing trade between %d and %d\n" buy_order.id sell_order.id;
+  (* Printf.printf "Executing trade between %d and %d\n" buy_order.id sell_order.id; *)
   let trade_qty = Float.min buy_order.qty sell_order.qty in
   let trade_price = get_trade_price buy_order sell_order in
   let total_cost = trade_price *. trade_qty in
@@ -56,9 +56,16 @@ let match_orders (order_book : order_book) (_market_conditions : market_conditio
   let rec match_aux acc =
     match get_bids order_book, get_asks order_book with
     | [], _ | _, [] -> acc
-    | best_bid :: _, best_ask :: _ -> (
-      match best_bid.order_type, best_ask.order_type with
-      | Market, _ | _, Market ->
+    | best_bid :: _, best_ask :: _ ->
+      let can_match = match best_bid.order_type, best_ask.order_type with
+      | Market, _ | _, Market -> true
+      | Limit { price = bid_price; _ }, Limit { price = ask_price; _ } -> bid_price >= ask_price
+      | Margin bid_price, Limit { price = ask_price; _ } 
+      | Limit { price = bid_price; _ }, Margin ask_price 
+      | Margin bid_price, Margin ask_price ->
+        bid_price >= ask_price
+      in
+      if can_match then
         (match execute_trade best_bid best_ask with
         | Ok (trade_qty, trade_price) ->
           let trade = {
@@ -74,7 +81,7 @@ let match_orders (order_book : order_book) (_market_conditions : market_conditio
             match_aux (trade :: acc)
           else trade :: acc
         | Error _ -> match_aux acc)
-      | _, _ -> acc)
+      else acc (* no match is possible right now *)
   in
   List.rev (match_aux [])
 

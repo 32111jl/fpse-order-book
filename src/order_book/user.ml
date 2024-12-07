@@ -17,7 +17,7 @@ type user = {
 
 
 let create_user id initial_balance =
-  if initial_balance > 0.0 then create_user_in_db ~id ~name:"" ~balance:initial_balance
+  if initial_balance > 0.0 then create_user_in_db id "" initial_balance
   else Error "Initial balance cannot be negative!"
 
 let get_balance user_id = get_user_balance user_id

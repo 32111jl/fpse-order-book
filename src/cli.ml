@@ -8,10 +8,12 @@ open Printer
 open Utils
 open Utils.Order_types
 
-let order_books = Hashtbl.create 16 (* in-memory list of order books *)
-let curr_user_id = ref None
-let user_order_counter = ref 1000000
-let computer_order_counter = ref (-1000000)
+let order_books = Hashtbl.create 16              (* in-memory list of order books *)
+(* I think in theory this is faster for lookups, but I'm not sure vs just the database. Need to *)
+let curr_user_id = ref None                      (* current user ID, shouldn't change after setting it *)
+let user_order_counter = ref 1000000             (* counter for user-placed orders *)
+let computer_order_counter = ref (-1000000)      (* counter for computer-generated orders *)
+(* list of currently-available securities *)
 let available_securities = [
   "AAPL"; "MSFT"; "GOOGL"; "AMZN"; "TSLA"; 
   "META"; "NVDA"; "RKLB"; "RIVN"; "PLTR"
@@ -23,6 +25,10 @@ let get_base_price (security : string) : float = match security with
   | "AMZN" -> 180.0 | "TSLA" -> 300.0 | "META" -> 300.0
   | "NVDA" -> 400.0 | "RKLB" -> 20.0 | "RIVN" -> 15.0
   | "PLTR" -> 53.0 | _ -> 100.0
+
+let with_user_id f = match !curr_user_id with
+  | Some user_id -> f user_id
+  | None -> Printf.printf "Please set your user ID first.\n"
 
 let create_dynamic_market_conditions (security : string) : market_conditions =
   let base_price = get_base_price security in
@@ -37,27 +43,6 @@ let get_or_create_order_book security =
     Hashtbl.add order_books security ob;
     ob
 
-let load_orders_from_db () =
-  List.iter (fun security ->
-    let order_book = get_or_create_order_book security in
-    match get_active_orders_given_security security with
-    | Ok result ->
-      for i = 0 to result#ntuples - 1 do
-        let order = {
-          id = int_of_string (result#getvalue i 0);
-          user_id = int_of_string (result#getvalue i 1);
-          security = security;
-          order_type = string_to_order_type (result#getvalue i 3) (float_of_string (result#getvalue i 6));
-          buy_sell = string_to_buy_sell (result#getvalue i 4);
-          qty = float_of_string (result#getvalue i 5);
-        } in
-        match add_order order_book order with
-        | Ok _ -> ()
-        | Error e -> Printf.printf "Error adding order to order book: %s\n" e
-      done
-    | Error _ -> ()
-  ) available_securities
-
 let place_order security order_type buy_sell qty user_id =
   let order_book = get_or_create_order_book security in
   match order_type with
@@ -71,11 +56,9 @@ let place_order security order_type buy_sell qty user_id =
           let price = best_ask in
           let order_id = !user_order_counter in
           user_order_counter := order_id + 1;
-          match create_order ~id:order_id ~user_id ~security ~order_type ~buy_sell ~qty ~price with
-          | Ok _ -> 
-            let market_conditions = create_dynamic_market_conditions security in
-            let trades = match_orders order_book market_conditions in
-            List.iter (fun trade -> print_trade trade security) trades
+          match create_order order_id user_id security order_type buy_sell qty price with
+          | Ok _ -> (* match here or no? need to wait some time before the position shows up if not, otherwise will have duplicated share *)
+            Printf.printf "Market BUY order placed for %.2f shares of %s.\n" qty security
           | Error e -> Printf.printf "Error placing market buy order: %s\n" e)
       | Sell ->
         (match get_best_bid order_book with
@@ -84,18 +67,20 @@ let place_order security order_type buy_sell qty user_id =
           let price = best_bid in
           let order_id = !user_order_counter in
           user_order_counter := order_id + 1;
-          match create_order ~id:order_id ~user_id ~security ~order_type ~buy_sell ~qty ~price with
-          | Ok _ -> 
-            let market_conditions = create_dynamic_market_conditions security in
-            let trades = match_orders order_book market_conditions in
-            List.iter (fun trade -> print_trade trade security) trades
+          match create_order order_id user_id security order_type buy_sell qty price with
+          | Ok _ -> (* match here or no? need to wait some time before the position shows up if not, otherwise will have duplicated share *)
+            Printf.printf "Market SELL order placed for %.2f shares of %s.\n" qty security
           | Error e -> Printf.printf "Error placing market sell order: %s\n" e))
     | Limit { price; _ } | Margin price ->
-      ignore (create_order ~id:0 ~user_id ~security ~order_type ~buy_sell ~qty ~price);
-      Printf.printf "%s %s order placed: %.2f shares at $%.2f.\n"
-        (match order_type with Limit _ -> "Limit" | Margin _ -> "Margin" | _ -> "")
-        (if buy_sell = Buy then "buy" else "sell")
-        qty price
+      let order_id = !user_order_counter in
+      user_order_counter := order_id + 1;
+      match create_order order_id user_id security order_type buy_sell qty price with
+      | Ok _ -> (* match here or no? *)
+        Printf.printf "%s %s order placed: %.2f shares at $%.2f.\n"
+          (match order_type with Limit _ -> "Limit" | Margin _ -> "Margin" | _ -> "")
+          (if buy_sell = Buy then "BUY" else "SELL")
+          qty price
+      | Error e -> Printf.printf "Error placing limit/margin order: %s\n" e
 
 let rec get_security () =
   Printf.printf "Enter the security (eg. AAPL): ";
@@ -155,15 +140,50 @@ let set_user_id () =
     curr_user_id := Some user_id;
     match get_user_balance user_id with
     | None -> 
-      ignore (create_user_in_db ~id:user_id ~name:"" ~balance:1000.0);
+      ignore (create_user_in_db user_id "" 1000.0);
       Printf.printf "New user created with initial balance of $1000.00\n"
     | Some _ -> 
       Printf.printf "Welcome back!\n"
 
+let can_place_order user_id security buy_sell order_type qty : (unit, string) result =
+  match get_user_balance user_id with
+  | None -> Error "User not found."
+  | Some balance ->
+    (* buy order: check if we can afford the order *)
+    let cost = match order_type with
+      | Market ->
+        let ob = get_or_create_order_book security in
+        if buy_sell = Buy then
+          match get_best_ask ob with
+          | Some price -> price *. qty
+          | None -> 0.0
+        else 0.0
+      | Limit { price; _ } -> if buy_sell = Buy then price *. qty else 0.0
+      | Margin price -> price *. 0.5
+    in
+
+    if buy_sell = Buy && cost > balance then
+      Error (Printf.sprintf "Insufficient funds. Required: $%.2f, Available: $%.2f." cost balance)
+    else if buy_sell = Sell then
+      (* sell order: check if we have enough shares to sell *)
+      match get_positions_by_user user_id with
+      | Ok result ->
+        let rec find_security i =
+          if i >= result#ntuples then None
+          else 
+            let sec = result#getvalue i 1 in
+            if String.uppercase_ascii sec = security then Some (float_of_string (result#getvalue i 2))
+            else find_security (i + 1)
+        in
+        (match find_security 0 with
+        | Some shares when shares >= qty -> Ok ()   (* user has enough shares *)
+        | Some shares -> Error (Printf.sprintf "Insufficient shares. Required: %.2f, Available: %.2f." qty shares)
+        | None -> Error (Printf.sprintf "You don't own any shares of %s!" security))
+      | Error _ -> Error "Error fetching positions.\n"
+    else Ok ()
+
 let place_order_interactive () =
-  match !curr_user_id with
-  | None -> Printf.printf "Please set your user ID first.\n"
-  | Some user_id ->
+  with_user_id (fun user_id ->
     print_available_securities available_securities;
     print_available_securities ~active_only:true available_securities;
     let security = get_security () in
@@ -190,38 +210,22 @@ let place_order_interactive () =
     in
     if should_continue then begin
       let qty = get_quantity () in
-      match get_user_balance user_id with
-      | None -> Printf.printf "Can't place order, user not found.\n"
-      | Some balance ->
-        (* check if we can afford the order *)
-        let cost = match order_type with
-        | Market -> 
-          let ob = get_or_create_order_book security in
-          if buy_sell = Buy then
-            match get_best_ask ob with
-            | Some price -> price *. qty
-            | None -> 0.0
-          else 0.0
-        | Limit { price; _ } -> if buy_sell = Buy then price *. qty else 0.0
-        | Margin price -> price *. 0.5
-        in
-        if buy_sell = Buy && cost > balance then
-          Printf.printf "Insufficient funds. Required: $%.2f, Available: $%.2f\n" cost balance
-        else begin
-          place_order security order_type buy_sell qty user_id;
-          Printf.printf "Order placed successfully!\n"
-        end
+      match can_place_order user_id security buy_sell order_type qty with
+      | Error e -> Printf.printf "%s\n" e
+      | Ok _ ->
+        place_order security order_type buy_sell qty user_id;
+        Printf.printf "Order placed successfully!\n"
     end
+  )
 
 let cancel_order () = 
-  match !curr_user_id with
-  | None -> Printf.printf "Please set your user ID first!\n"
-  | Some user_id ->
+  with_user_id (fun user_id ->
     print_user_orders user_id;
     Printf.printf "Enter the order ID to cancel (or -1 to go back): ";
     let order_id = int_of_string (read_line ()) in
     if order_id = -1 then Printf.printf "Cancellation aborted.\n"
     else ignore (cancel_order order_id)
+  )
 
 let view_book () = 
   print_available_securities ~active_only:true available_securities;
@@ -243,14 +247,12 @@ let view_book () =
     else Printf.printf "Invalid security. Please choose from the list above.\n"
 
 let view_my_orders () = 
-  match !curr_user_id with
-  | None -> Printf.printf "Please set your user ID first.\n"
-  | Some user_id -> print_user_orders user_id
+  with_user_id (fun user_id ->
+    print_user_orders user_id
+  )
 
 let view_bal () = 
-  match !curr_user_id with
-  | None -> Printf.printf "Please set your user ID first.\n"
-  | Some user_id ->
+  with_user_id (fun user_id ->
     match get_user_balance user_id with
     | Some balance -> 
       Printf.printf "Cash balance: $%.2f\n" balance;
@@ -264,6 +266,7 @@ let view_bal () =
         done
       | Error _ -> Printf.printf "Error fetching positions\n")
     | None -> Printf.printf "User not found\n"
+  )
 
 let view_security_info () =
   print_available_securities available_securities;
@@ -288,8 +291,29 @@ let view_recent_trades () =
     if not !has_trades then Printf.printf "No trades found for any security.\n"
   | security -> print_recent_trades security
 
+let load_orders_from_db () =
+  List.iter (fun security ->
+    let order_book = get_or_create_order_book security in
+    match get_active_orders_given_security security with
+    | Ok result ->
+      for i = 0 to result#ntuples - 1 do
+        let order = {
+          id = int_of_string (result#getvalue i 0);
+          user_id = int_of_string (result#getvalue i 1);
+          security = security;
+          order_type = string_to_order_type (result#getvalue i 3) (float_of_string (result#getvalue i 6));
+          buy_sell = string_to_buy_sell (result#getvalue i 4);
+          qty = float_of_string (result#getvalue i 5);
+        } in
+        match add_order order_book order with
+        | Ok _ -> ()
+        | Error e -> Printf.printf "Error adding order to order book: %s\n" e
+      done
+    | Error _ -> ()
+  ) available_securities
+
+(* continuously match orders as long as there are any *)
 let continuous_matching_thread () =
-  (* continuously match orders as long as there are any *)
   while true do
     load_orders_from_db ();
     List.iter (fun security ->
@@ -301,7 +325,8 @@ let continuous_matching_thread () =
     Unix.sleepf 0.001
   done
 
-let initialize_random_orders security =
+(* create some orders for a given security (id's will be negative to indicate they're computer-generated) *)
+let initialize_random_orders (security : string) =
   let base_price = get_base_price security in
   let market_conditions = create_dynamic_market_conditions security in
   let create_random_order i =
@@ -311,12 +336,12 @@ let initialize_random_orders security =
     let computer_user_id = -1000000 - (Random.int 5 + 1) in       (* select from the 5 pre-defined computer uses in test_data.sql *)
     let price = random_price (if is_buy then base_price else base_price +. 1.0) market_conditions.bid_ask_spread in
     let buy_sell = if is_buy then Order_types.Buy else Order_types.Sell in
-    let qty = Random.float 100.0 in
+    let qty = round_quantity (random_float_between 20.0 100.0) in (* a random qty btwn 20 and 100 shares *)
     let order_type = Order_types.Limit {
       price = price;
       expiration = Some (current_time () +. 3600.0)
     } in
-    match create_order ~id:order_id ~user_id:computer_user_id ~security ~order_type ~buy_sell ~qty ~price with
+    match create_order order_id computer_user_id security order_type buy_sell qty price with
     | Ok _ -> Printf.printf "Created computer order: %d %s %s %.2f shares at $%.2f\n" order_id security (buy_sell_to_string buy_sell) qty price
     | Error e -> Printf.printf "Error creating computer order: %s\n" e
   in
@@ -343,7 +368,7 @@ let initialize_system () =
 
 let run_cli () = 
   initialize_system ();
-  let _ = Thread.create continuous_matching_thread () in
+  let _ = Thread.create continuous_matching_thread () in (* is this necessary?? to-do *)
   let rec loop () =
     Printf.printf "\n------------------------\n";
     Printf.printf "Select an option:\n";

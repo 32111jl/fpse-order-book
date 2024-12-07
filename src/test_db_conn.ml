@@ -1,3 +1,4 @@
+(* Simple test to check/verify if db connection actually works. *)
 open Database.Db
 
 let () =

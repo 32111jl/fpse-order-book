@@ -37,26 +37,26 @@ let print_orders (ob : order_book) =
   | Error _ -> Printf.printf "Error fetching asks.\n");
   Printf.printf "------------------------\n"
 
-let print_user_orders user_id =
-  match get_orders_by_user user_id with
+let print_user_orders (user_id : int) =
+  match get_active_orders_given_user user_id with
   | Ok result ->
     if result#ntuples = 0 then Printf.printf "You have no active orders!\n"
     else begin
       Printf.printf "\nYour Active Orders:\n";
       Printf.printf "------------------------\n";
       for i = 0 to result#ntuples - 1 do
-        Printf.printf "ID: %s, %s: %s order for %s shares at $%s\n"
+        Printf.printf "ID: %s, %s: %s order for %.2f shares at $%s\n"
           (result#getvalue i 0)  (* id *)
           (result#getvalue i 2)  (* security *)
           (result#getvalue i 4)  (* buy_sell *)
-          (result#getvalue i 5)  (* quantity *)
+          (float_of_string (result#getvalue i 5))  (* quantity *)
           (result#getvalue i 6)  (* price *)
       done;
       Printf.printf "------------------------\n"
     end
   | Error _ -> Printf.printf "Error fetching orders\n"
 
-let print_market_prices securities =
+let print_market_prices (securities : string list) =
   Printf.printf "\nCurrent Market Prices:\n";
   List.iter (fun security ->
     let ob = create_order_book security in
@@ -70,7 +70,7 @@ let print_market_prices securities =
   ) securities;
   Printf.printf "------------------------\n"
 
-let print_trade trade security =
+let print_trade (trade : trade) (security : string) =
   Printf.printf "Trade executed: %.2f units of %s between orders %d and %d at $%.2f.\n" 
                 trade.qty security trade.buy_order_id trade.sell_order_id trade.price
 
@@ -86,7 +86,7 @@ let print_query_result result =
   | Error msg -> Printf.printf "Error: %s\n" msg
 
 
-let print_available_securities ?(active_only=false) securities =
+let print_available_securities ?(active_only=false) (securities : string list) =
   if active_only then
     let active_securities = List.filter (fun security -> 
       match get_active_orders_given_security security with
@@ -105,7 +105,7 @@ let print_available_securities ?(active_only=false) securities =
     Printf.printf "\n"
   end
 
-let print_security_info security =
+let print_security_info (security : string) =
   match get_security_info security with
   | Ok result ->
     if result#ntuples > 0 then begin
@@ -126,7 +126,7 @@ let print_security_info security =
     end
   | Error msg -> Printf.printf "Error: %s\n" msg
 
-let print_recent_trades security =
+let print_recent_trades (security : string) =
   match get_trades_by_security security with
   | Ok result ->
     if result#ntuples > 0 then begin

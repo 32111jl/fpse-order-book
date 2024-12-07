@@ -8,8 +8,7 @@
             postgresql)
  (link_flags
   (-cclib -Wl,-rpath,/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14
-   -cclib -L/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14
-   -cclib -lpq)))
+   -cclib -L/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14)))
 
 (executable
  (name test_db_conn)
