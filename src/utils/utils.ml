@@ -22,7 +22,7 @@ let string_to_order_type (str : string) (price : float) =
   | "MARKET" -> Order_types.Market
   | "LIMIT" -> Order_types.Limit { price = price; expiration = None }
   | "MARGIN" -> Order_types.Margin price
-  | _ -> failwith ("Invalid order type: " ^ str)
+  | _ -> failwith ("Invalid order type: " ^ str) (* should never be reached since constructor doesn't contain other types *)
 
 let order_type_to_string (order_type : Order_types.order_type) =
   match order_type with

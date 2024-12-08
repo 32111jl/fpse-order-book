@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8"/>
     <title>matching_engine.ml &mdash; Coverage report</title>
-    <meta name="description" content="85.71% coverage in src/order_book/matching_engine.ml">
+    <meta name="description" content="93.65% coverage in src/order_book/matching_engine.ml">
     <link rel="stylesheet" href="../../coverage.css"/>
     <script src="../../highlight.pack.js"></script>
     <script>hljs.initHighlightingOnLoad();</script>
@@ -15,14 +15,12 @@
           <span class="dirname">src/order_book/</span>matching_engine.ml
         </a>
       </h1>
-      <h2>85.71%</h2>
+      <h2>93.65%</h2>
     </div>
     <div id="navbar">
       <span class="some-visited" style="top:24.30%"></span>
       <span class="some-visited" style="top:28.04%"></span>
-      <span class="unvisited" style="bottom:45.79%"></span>
-      <span class="unvisited" style="bottom:32.71%"></span>
-      <span class="unvisited" style="bottom:29.91%"></span>
+      <span class="some-visited" style="bottom:32.71%"></span>
       <span class="unvisited" style="bottom:5.61%"></span>
     </div>
     <div id="report">
@@ -85,7 +83,7 @@
 <a id="L55"></a><span class="visited"> </span>
 <a id="L56"></a><span class="visited"> </span>
 <a id="L57"></a><span class="visited"> </span>
-<a id="L58"></a><span class="unvisited"> </span>
+<a id="L58"></a><span class="visited"> </span>
 <a id="L59"></a><span > </span>
 <a id="L60"></a><span > </span>
 <a id="L61"></a><span class="visited"> </span>
@@ -99,10 +97,10 @@
 <a id="L69"></a><span > </span>
 <a id="L70"></a><span class="visited"> </span>
 <a id="L71"></a><span class="visited"> </span>
-<a id="L72"></a><span class="unvisited"> </span>
+<a id="L72"></a><span class="some-visited"> </span>
 <a id="L73"></a><span class="visited"> </span>
 <a id="L74"></a><span > </span>
-<a id="L75"></a><span class="unvisited"> </span>
+<a id="L75"></a><span class="visited"> </span>
 <a id="L76"></a><span class="visited"> </span>
 <a id="L77"></a><span > </span>
 <a id="L78"></a><span class="visited"> </span>
@@ -280,48 +278,48 @@ let check_spread (book : order_book) (market_conditions : market_conditions) : b
   | <span data-count="3">_</span> -&gt; false
 
 let get_trade_price (buy_order : Order_types.db_order) (sell_order : Order_types.db_order) : float =
-  <span data-count="9">m</span>atch sell_order.order_type with
-  | <span data-count="2">M</span>arket -&gt; (match get_price buy_order with
-    | <span data-count="1">S</span>ome p -&gt; p
-    | <span data-count="1">N</span>one -&gt; failwith "Both orders cannot be market orders")
-  | <span data-count="5">L</span>imit { price; _ } | <span data-count="2">M</span>argin price -&gt; price
+  <span data-count="12">m</span>atch sell_order.order_type with
+  | <span data-count="4">M</span>arket -&gt; (match get_price buy_order with
+    | <span data-count="2">S</span>ome p -&gt; p
+    | <span data-count="2">N</span>one -&gt; failwith "Both orders cannot be market orders")
+  | <span data-count="6">L</span>imit { price; _ } | <span data-count="2">M</span>argin price -&gt; price
 
 (* executes trade between two orders, updates database accordingly *)
 let execute_trade (buy_order : Order_types.db_order) (sell_order : Order_types.db_order) : (float * float, string) result =
-  <span data-count="7">l</span>et trade_qty = Float.min buy_order.qty sell_order.qty in
-  <span data-count="7">l</span>et trade_price = get_trade_price buy_order sell_order in
-  <span data-count="7">l</span>et total_cost = trade_price *. trade_qty in
+  <span data-count="10">l</span>et trade_qty = Float.min buy_order.qty sell_order.qty in
+  <span data-count="10">l</span>et trade_price = get_trade_price buy_order sell_order in
+  <span data-count="9">l</span>et total_cost = trade_price *. trade_qty in
   
   with_transaction (fun _conn -&gt;
-    <span data-count="7">l</span>et _ = record_trade ~buy_order_id:buy_order.id ~sell_order_id:sell_order.id ~security:buy_order.security ~qty:trade_qty ~price:trade_price in
+    <span data-count="9">l</span>et _ = record_trade ~buy_order_id:buy_order.id ~sell_order_id:sell_order.id ~security:buy_order.security ~qty:trade_qty ~price:trade_price in
     
     let buy_qty_remaining = buy_order.qty -. trade_qty in
     let sell_qty_remaining = sell_order.qty -. trade_qty in
 
     let _ = update_order_qty buy_order.id buy_qty_remaining in
-    <span data-count="7">l</span>et _ = update_order_qty sell_order.id sell_qty_remaining in
+    <span data-count="9">l</span>et _ = update_order_qty sell_order.id sell_qty_remaining in
     
-    <span data-count="7">l</span>et _ = if buy_qty_remaining &lt;= 0.0 then <span data-count="1">f</span>ill_orde<span data-count="1">r</span> buy_order.id
+    <span data-count="9">l</span>et _ = if buy_qty_remaining &lt;= 0.0 then <span data-count="3">f</span>ill_orde<span data-count="3">r</span> buy_order.id
             else <span data-count="6">u</span>pdate_order_statu<span data-count="6">s</span> buy_order.id "PARTIAL" in
-    let _ = if sell_qty_remaining &lt;= 0.0 then <span data-count="7">f</span>ill_orde<span data-count="7">r</span> sell_order.id
-            else <span data-count="0">u</span>pdate_order_statu<span data-count="0">s</span> sell_order.id "PARTIAL" in
+    let _ = if sell_qty_remaining &lt;= 0.0 then <span data-count="8">f</span>ill_orde<span data-count="8">r</span> sell_order.id
+            else <span data-count="1">u</span>pdate_order_statu<span data-count="1">s</span> sell_order.id "PARTIAL" in
     
     let _ = update_position buy_order.user_id buy_order.security trade_qty in
-    <span data-count="7">l</span>et _ = update_position sell_order.user_id sell_order.security (-<span data-count="7">.</span> trade_qty) in
+    <span data-count="9">l</span>et _ = update_position sell_order.user_id sell_order.security (-<span data-count="9">.</span> trade_qty) in
     
-    <span data-count="7">l</span>et _ = update_user_balance buy_order.user_id (-<span data-count="7">.</span> total_cost) in
-    <span data-count="7">l</span>et _ = update_user_balance sell_order.user_id total_cost in
-    <span data-count="7">(</span>trade_qty, trade_price)
+    <span data-count="9">l</span>et _ = update_user_balance buy_order.user_id (-<span data-count="9">.</span> total_cost) in
+    <span data-count="9">l</span>et _ = update_user_balance sell_order.user_id total_cost in
+    <span data-count="9">(</span>trade_qty, trade_price)
   )
 
 (* looks at order book to find matching pairs of bids/asks *)
 let match_orders (order_book : order_book) (_market_conditions : market_conditions) : Order_types.trade list =
-  <span data-count="7">l</span>et rec match_aux acc =
-    <span data-count="8">m</span>atch get_bid<span data-count="8">s</span> order_book, get_ask<span data-count="8">s</span> order_book with
-    | <span data-count="0">[</span>], _ | <span data-count="0">_</span>, [] -&gt; acc
-    | <span data-count="8">b</span>est_bid :: _, best_ask :: _ -&gt;
+  <span data-count="10">l</span>et rec match_aux acc =
+    <span data-count="11">m</span>atch get_bid<span data-count="11">s</span> order_book, get_ask<span data-count="11">s</span> order_book with
+    | <span data-count="1">[</span>], _ | <span data-count="0">_</span>, [] -&gt; acc
+    | <span data-count="10">b</span>est_bid :: _, best_ask :: _ -&gt;
       let can_match = match best_bid.order_type, best_ask.order_type with
-      | <span data-count="0">M</span>arket, _ | <span data-count="0">_</span>, Market -&gt; true
+      | <span data-count="1">M</span>arket, _ | <span data-count="1">_</span>, Market -&gt; true
       | <span data-count="8">_</span> -&gt; 
         match order_book.best_bid, order_book.best_ask with
         | <span data-count="7">S</span>ome bid_price, Some ask_price -&gt; bid_price &gt;= ask_price
@@ -333,8 +331,8 @@ let match_orders (order_book : order_book) (_market_conditions : market_conditio
         bid_price &gt;= ask_price *)
       in
       if can_match then
-        <span data-count="6">(</span>match execute_trade best_bid best_ask with
-        | <span data-count="6">O</span>k (trade_qty, trade_price) -&gt;
+        <span data-count="8">(</span>match execute_trade best_bid best_ask with
+        | <span data-count="7">O</span>k (trade_qty, trade_price) -&gt;
           let trade = {
             buy_order_id = best_bid.id;
             sell_order_id = best_ask.id;
@@ -344,13 +342,13 @@ let match_orders (order_book : order_book) (_market_conditions : market_conditio
           } in
           order_book.best_bid &lt;- None;
           order_book.best_ask &lt;- None;
-          if get_bid<span data-count="6">s</span> order_book &lt;&gt; [] &amp;&amp; <span data-count="6">g</span>et_ask<span data-count="6">s</span> order_book &lt;&gt; [] then
+          if get_bid<span data-count="7">s</span> order_book &lt;&gt; [] &amp;&amp; <span data-count="6">g</span>et_ask<span data-count="6">s</span> order_book &lt;&gt; [] then
             <span data-count="1">m</span>atch_aux (trade :: acc)
-          else <span data-count="5">t</span>rade :: acc
+          else <span data-count="6">t</span>rade :: acc
         | <span data-count="0">E</span>rror _ -&gt; match_aux acc)
       else <span data-count="2">a</span>cc (* no match is possible right now *)
   in
-  List.rev (match_au<span data-count="7">x</span> [])
+  List.rev (match_au<span data-count="9">x</span> [])
 
 let match_all_books (order_books : order_book list) (market_conditions : market_conditions) : Order_types.trade list =
   <span data-count="1">L</span>ist.concat (List.ma<span data-count="1">p</span> (fun ob -&gt; <span data-count="2">m</span>atch_orders ob market_conditions) order_books)

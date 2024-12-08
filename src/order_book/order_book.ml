@@ -83,13 +83,13 @@ let get_bids (order_book : order_book) : Utils.Order_types.db_order list =
         | "MARKET" -> Market
         | "LIMIT" -> Limit { price; expiration = None }
         | "MARGIN" -> Margin price
-        | _ -> failwith "Invalid order type"
+        | _ -> failwith "Invalid order type" [@ coverage off] (* should never be reached since create_order checks already *)
       in
       orders := { id; user_id; security = order_book.security; 
                   order_type; buy_sell = Buy; qty } :: !orders
     done;
     List.rev !orders
-  | Error _ -> []
+  | Error _ -> [] (* i can't test this because of type checking and i can't pass a malformed query into this function directly *)
 
 let get_asks (order_book : order_book) : Utils.Order_types.db_order list = 
   let query = "
@@ -114,13 +114,13 @@ let get_asks (order_book : order_book) : Utils.Order_types.db_order list =
         | "MARKET" -> Market
         | "LIMIT" -> Limit { price; expiration = None }
         | "MARGIN" -> Margin price
-        | _ -> failwith "Invalid order type"
+        | _ -> failwith "Invalid order type" [@ coverage off] (* should never be reached since create_order checks already *)
       in
       orders := { id; user_id; security = order_book.security;
                   order_type; buy_sell = Sell; qty } :: !orders
     done;
     List.rev !orders
-  | Error _ -> []
+  | Error _ -> [] (* see above, also execute_query only produces error if db is down or query is malformed... *)
 
 let add_order (book : order_book) (order : Utils.Order_types.db_order) = 
   match create_order order.id order.user_id book.security order.order_type order.buy_sell order.qty (match get_price order with Some p -> p | None -> 0.0) with
@@ -153,4 +153,4 @@ let check_order_exists _order_book (order_id : int) =
   in
   match execute_query query [| string_of_int order_id |] with
   | Ok result -> result#ntuples > 0 && (int_of_string (result#getvalue 0 0)) > 0
-  | Error _ -> false
+  | Error _ -> false (* not sure how to test this *)

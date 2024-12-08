@@ -401,7 +401,7 @@ module MatchingEngineTests = struct
     ignore (create_user_in_db 43 "UserME13" 1000.0);
     ignore (create_user_in_db 44 "UserME14" 1000.0);
 
-    let buy_order = { id = 1313; user_id = 43; security = "ME13"; order_type = Limit { price = 100.0; expiration = None }; buy_sell = Buy; qty = 2.0 } in
+    (let buy_order = { id = 1313; user_id = 43; security = "ME13"; order_type = Limit { price = 100.0; expiration = None }; buy_sell = Buy; qty = 2.0 } in
     let sell_order = { id = 1314; user_id = 44; security = "ME13"; order_type = Limit { price = 100.0; expiration = None }; buy_sell = Sell; qty = 1.0 } in
     ignore (add_order book buy_order);
     ignore (add_order book sell_order);
@@ -420,26 +420,56 @@ module MatchingEngineTests = struct
         let new_qty_sell = float_of_string (res#getvalue 0 5) in
         assert_equal 0.0 new_qty_sell
       | Error e -> assert_failure e)
-    | Error e -> assert_failure e
+    | Error e -> assert_failure e);
+
+    (let buy_order = { id = 1353; user_id = 43; security = "ME13"; order_type = Limit { price = 100.0; expiration = None }; buy_sell = Buy; qty = 1.0 } in
+    let sell_order = { id = 1354; user_id = 44; security = "ME13"; order_type = Limit { price = 100.0; expiration = None }; buy_sell = Sell; qty = 2.0 } in
+    ignore (add_order book buy_order);
+    ignore (add_order book sell_order);
+    
+    match execute_trade buy_order sell_order with
+    | Ok (trade_qty, trade_price) ->
+      assert_equal 1.0 trade_qty;
+      assert_equal 100.0 trade_price;
+      (match get_order 1353 with
+      | Ok res ->
+        let new_qty_buy = float_of_string (res#getvalue 0 5) in
+        assert_equal 0.0 new_qty_buy
+      | Error e -> assert_failure e);
+      (match get_order 1354 with
+      | Ok res ->
+        let new_qty_sell = float_of_string (res#getvalue 0 5) in
+        assert_equal 1.0 new_qty_sell
+      | Error e -> assert_failure e)
+    | Error e -> assert_failure e)
 
   let test_match_orders _ = 
     ignore (create_security "ME15" 100.0);
     let book = create_order_book "ME15" in
+    let market_conds = create_market_conditions 5.0 0.5 in
     ignore (create_user_in_db 45 "UserME15" 1000.0);
     ignore (create_user_in_db 46 "UserME16" 1000.0);
+
+    let trades_none = match_orders book market_conds in
+    assert_equal 0 (List.length trades_none);
     
     let buy_order = { id = 1315; user_id = 45; security = "ME15"; order_type = Limit { price = 100.0; expiration = None }; buy_sell = Buy; qty = 2.0 } in
     let sell_order = { id = 1316; user_id = 46; security = "ME15"; order_type = Limit { price = 100.0; expiration = None }; buy_sell = Sell; qty = 1.0 } in
     ignore (add_order book buy_order);
     ignore (add_order book sell_order);
     
-    let market_conds = create_market_conditions 5.0 0.5 in
-    let trades = match_orders book market_conds in
-    assert_equal 1 (List.length trades);
+    let trades_actual = match_orders book market_conds in
+    assert_equal 1 (List.length trades_actual);
 
-    let trade = List.hd trades in
+    let trade = List.hd trades_actual in
     assert_equal 1.0 trade.qty;
-    assert_equal 100.0 trade.price
+    assert_equal 100.0 trade.price;
+
+    let sell_market = { id = 1356; user_id = 46; security = "ME15"; order_type = Market; buy_sell = Sell; qty = 1.0 } in
+    ignore (add_order book sell_market);
+
+    let trades_market = match_orders book market_conds in
+    assert_equal 1 (List.length trades_market)
 
   let test_match_multiple_books _ =
     ignore (create_security "ME17" 100.0);
@@ -469,6 +499,7 @@ module MatchingEngineTests = struct
   let test_no_matching_orders _ =
     ignore (create_security "ME19" 100.0);
     let book = create_order_book "ME19" in
+    let market_conds = create_market_conditions 2.0 0.5 in
     ignore (create_user_in_db 49 "UserME19" 1000.0);
     ignore (create_user_in_db 50 "UserME20" 1000.0);
     
@@ -477,9 +508,20 @@ module MatchingEngineTests = struct
     ignore (add_order book order1);
     ignore (add_order book order2);
     
-    let market_conds = create_market_conditions 2.0 0.5 in
     let trades = match_orders book market_conds in
-    assert_equal 0 (List.length trades)
+    assert_equal 0 (List.length trades);
+
+    let order3 = { id = 1359; user_id = 49; security = "ME19"; order_type = Market; buy_sell = Buy; qty = 5.0 } in
+    let order4 = { id = 1360; user_id = 50; security = "ME19"; order_type = Market; buy_sell = Sell; qty = 5.0 } in
+    ignore (add_order book order3);
+    ignore (add_order book order4);
+
+    try
+      let trades = match_orders book market_conds in
+      assert_equal 0 (List.length trades);
+      assert_failure "Expected failure with both market orders"
+    with Failure msg ->
+      assert_equal "Both orders cannot be market orders" msg
 
   let test_check_spread_edge_cases _ =
     ignore (create_security "ME21" 100.0);
