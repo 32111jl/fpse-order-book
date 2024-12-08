@@ -25,10 +25,9 @@ let check_spread (book : order_book) (market_conditions : market_conditions) : b
     (match bid.order_type, ask.order_type with
     | Market, _ | _, Market -> true
     | _ -> 
-      match book.best_bid, book.best_ask with
-      | Some best_bid, Some best_ask -> (* or best bid >= best ask AND _ ??? *)
-        best_bid >= best_ask || (best_ask -. best_bid <= market_conditions.bid_ask_spread)
-      | _ -> false)
+      let best_bid = Option.get book.best_bid in
+      let best_ask = Option.get book.best_ask in
+      best_bid >= best_ask || (best_ask -. best_bid <= market_conditions.bid_ask_spread))
   | _ -> false
 
 let get_trade_price (buy_order : Order_types.db_order) (sell_order : Order_types.db_order) : float =

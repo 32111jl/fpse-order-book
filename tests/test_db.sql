@@ -19,7 +19,7 @@ CREATE TABLE securities (
 );
 
 CREATE TABLE orders (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY, -- use SERIAL instead?
   user_id INTEGER REFERENCES users(id),
   security VARCHAR(10) REFERENCES securities(symbol),
   order_type VARCHAR(10) NOT NULL,

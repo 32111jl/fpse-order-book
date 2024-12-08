@@ -206,8 +206,8 @@ module OrderBookTests = struct
     ignore (create_user_in_db 13 "UserOB3" 1000.0);
     ignore (create_user_in_db 14 "UserOB4" 1000.0);
 
-    ignore (create_order 1103 13 "OB4" (Limit { price = 101.0; expiration = None }) Buy 2.0 101.0);
-    ignore (create_order 1104 14 "OB4" (Limit { price = 102.0; expiration = None }) Buy 1.0 102.0);
+    ignore (create_order 1103 13 "OB4" (Limit { price = 101.0; expiration = None }) Buy 2.0 102.0);
+    ignore (create_order 1104 14 "OB4" (Limit { price = 102.0; expiration = None }) Buy 1.0 101.0);
     assert_equal (Some 102.0) (get_best_bid book) (* highest price = best bid *)
 
   let test_add_multiple_sell_orders_check_ask _ =
@@ -216,8 +216,8 @@ module OrderBookTests = struct
     ignore (create_user_in_db 15 "UserOB5" 1000.0);
     ignore (create_user_in_db 16 "UserOB6" 1000.0);
 
-    ignore (create_order 1105 15 "OB5" (Limit { price = 101.0; expiration = None }) Sell 5.0 101.0);
-    ignore (create_order 1106 16 "OB5" (Limit { price = 102.0; expiration = None }) Sell 5.0 102.0);
+    ignore (create_order 1105 15 "OB5" (Limit { price = 101.0; expiration = None }) Sell 1.0 101.0);
+    ignore (create_order 1106 16 "OB5" (Limit { price = 102.0; expiration = None }) Sell 2.0 102.0);
     assert_equal (Some 101.0) (get_best_ask book) (* lowest price = best ask *)
 
   let test_get_bids_and_asks_ordering _ =
@@ -251,16 +251,34 @@ module OrderBookTests = struct
     ignore (create_security "OB8" 100.0);
     ignore (create_user_in_db 21 "UserOB11" 1000.0);
     let book = create_order_book "OB8" in
-    ignore (create_order 1301 21 "OB8" (Limit { price = 105.0; expiration = Some 2.0 }) Buy 5.0 105.0);
+    ignore (create_order 1111 21 "OB8" (Limit { price = 105.0; expiration = Some 2.0 }) Buy 5.0 105.0);
 
     ignore (remove_expired_orders book 5.0); (* should be expired since 5 > 2 *)
-    match get_order 1301 with
+    match get_order 1111 with
     | Ok result ->
       assert_equal 1 result#ntuples;
       assert_equal "EXPIRED" (result#getvalue 0 7);
       let bids = get_bids book in
       assert_equal 0 (List.length bids) (* 0 since expired orders aren't active *)
     | Error e -> assert_failure ("Failed to get order: " ^ e)
+
+  let test_get_best_bid_ask_cached _ =
+    ignore (create_security "OB9" 100.0);
+    let book = create_order_book "OB9" in
+    ignore (create_user_in_db 22 "UserOB12" 1000.0);
+    let buy_order = { id = 1112; user_id = 22; security = "OB9"; order_type = Limit { price = 100.0; expiration = None }; buy_sell = Buy; qty = 1.0 } in
+    let sell_order = { id = 1113; user_id = 22; security = "OB9"; order_type = Limit { price = 100.0; expiration = None }; buy_sell = Sell; qty = 1.0 } in
+    ignore (add_order book buy_order);
+    ignore (add_order book sell_order);
+    assert_equal (Some 100.0) (get_best_bid book);
+    assert_equal (Some 100.0) (get_best_ask book);
+
+    let better_buy_order = { id = 1114; user_id = 22; security = "OB9"; order_type = Limit { price = 101.0; expiration = None }; buy_sell = Buy; qty = 1.0 } in
+    let better_sell_order = { id = 1115; user_id = 22; security = "OB9"; order_type = Limit { price = 99.0; expiration = None }; buy_sell = Sell; qty = 1.0 } in
+    ignore (add_order book better_buy_order);
+    ignore (add_order book better_sell_order);
+    assert_equal (Some 101.0) (get_best_bid book);
+    assert_equal (Some 99.0) (get_best_ask book)
 
   let series = "order_book_tests" >::: [
     "test_create_order_book" >:: test_create_order_book;
@@ -271,6 +289,7 @@ module OrderBookTests = struct
     "test_get_bids_and_asks_ordering" >:: test_get_bids_and_asks_ordering;
     "test_add_and_remove_order" >:: test_add_and_remove_order;
     "test_remove_expired_orders" >:: test_remove_expired_orders;
+    "test_get_best_bid_ask_cached" >:: test_get_best_bid_ask_cached;
     "cleanup" >:: cleanup
   ]
 end
@@ -302,6 +321,7 @@ module MatchingEngineTests = struct
     assert_equal true (check_spread book market_conds);
     let tighter_market_conds = create_market_conditions 0.5 0.5 in
     assert_equal false (check_spread book tighter_market_conds)
+
 
   let test_check_spread_with_market_orders _ =
     ignore (create_security "ME3" 100.0);
@@ -461,6 +481,24 @@ module MatchingEngineTests = struct
     let trades = match_orders book market_conds in
     assert_equal 0 (List.length trades)
 
+  let test_check_spread_edge_cases _ =
+    ignore (create_security "ME21" 100.0);
+    let book = create_order_book "ME21" in
+    let market_conds = create_market_conditions 2.0 0.5 in
+    ignore (create_user_in_db 51 "UserME21" 1000.0);
+
+    assert_equal false (check_spread book market_conds);
+
+    let market_order = { id = 1325; user_id = 51; security = "ME21"; order_type = Market; buy_sell = Buy; qty = 1.0 } in
+    ignore (add_order book market_order);
+    assert_equal false (check_spread book market_conds); (* market order should not change spread *)
+
+    let limit_order = { id = 1326; user_id = 51; security = "ME21"; order_type = Limit { price = 100.0; expiration = None }; buy_sell = Buy; qty = 1.0 } in
+    ignore (add_order book limit_order);
+    assert_equal false (check_spread book market_conds) (* one best bid, but not best ask *)
+
+    (* no best bid in book *)
+
   let series = "matching_engine_tests" >::: [
     "test_get_margin_rate" >:: test_get_margin_rate;
     "test_check_spread" >:: test_check_spread;
@@ -471,6 +509,7 @@ module MatchingEngineTests = struct
     "test_match_orders" >:: test_match_orders;
     "test_match_multiple_books" >:: test_match_multiple_books;
     "test_no_matching_orders" >:: test_no_matching_orders;
+    "test_check_spread_edge_cases" >:: test_check_spread_edge_cases;
     "cleanup" >:: cleanup
   ]
 end
