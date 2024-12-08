@@ -6,7 +6,7 @@ type order_type =
   | Margin of float        (* margin orders are limit orders with a percentage above the current price *)
 
 type db_order = {
-  id : int;                 (* order ID *)  
+  id : int option;          (* order ID *)  
   user_id : int;            (* ID of the user who placed the order *)
   security : string;        (* security being traded (ex. "AAPL") *)
   order_type : order_type;  (* type of order (Market, Limit, Margin) *)

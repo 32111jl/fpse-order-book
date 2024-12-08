@@ -64,18 +64,23 @@ let execute_query (query : string) (params : string array)  =
   )
 
 (* user-related operations *)
-let create_user_in_db (id : int) (name : string) (balance : float) =
-  let query = "INSERT INTO users (id, name, balance) VALUES ($1, $2, $3)" in
-  execute_query query [| string_of_int id; name; string_of_float balance |]
+let create_user_in_db (name : string) (balance : float) =
+  let query = "INSERT INTO users (name, balance) VALUES ($1, $2) RETURNING id" in
+  match execute_query query [| name; string_of_float balance |] with
+  | Ok result -> int_of_string (result#getvalue 0 0) (* return the id of the new user *)
+  | Error _ -> failwith "Failed to create user"
+
+let get_user_name (user_id : int) =
+  let query = "SELECT name FROM users WHERE id = $1" in
+  match execute_query query [| string_of_int user_id |] with
+  | Ok result when result#ntuples > 0 -> Some (result#getvalue 0 0)
+  | _ -> None
 
 let get_user_balance (user_id : int) =
   let query = "SELECT balance FROM users WHERE id = $1" in
   match execute_query query [| string_of_int user_id |] with
-  | Ok result -> 
-    if result#ntuples > 0 then
-      Some (float_of_string (result#getvalue 0 0))
-    else None
-  | Error _ -> None
+  | Ok result when result#ntuples > 0 -> Some (float_of_string (result#getvalue 0 0))
+  | _ -> None
 
 let update_user_balance (user_id : int) (delta : float) =
   let query = "UPDATE users SET balance = balance + $1 WHERE id = $2" in
@@ -83,25 +88,22 @@ let update_user_balance (user_id : int) (delta : float) =
 
 
 (* order-related operations *)
-let create_order (id : int) (user_id : int) (security : string) (order_type : Order_types.order_type) (buy_sell : Order_types.buy_sell) (qty : float) (price : float) =
+let create_order (user_id : int) (security : string) (order_type : Order_types.order_type) (buy_sell : Order_types.buy_sell) (qty : float) (price : float) =
+  let query = "
+    INSERT INTO orders (
+      user_id, security, order_type, buy_sell, quantity, price, status, expiration_time
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, 'ACTIVE', NULLIF($7, 'NULL')::float
+    ) RETURNING id" in
   let expiration_time = match order_type with
   | Limit { expiration = Some exp; _ } -> string_of_float exp
   | _ -> "NULL"
   in
-  let query = "
-    INSERT INTO orders (
-      id, user_id, security, order_type, buy_sell, quantity, price, status, expiration_time
-    ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, 'ACTIVE', NULLIF($8, 'NULL')::float
-    ) RETURNING id" in
-  let order_type_str = order_type_to_string order_type in
-  let buy_sell_str = buy_sell_to_string buy_sell in
   let params = [|
-    string_of_int id;
     string_of_int user_id;
     security;
-    order_type_str;
-    buy_sell_str;
+    order_type_to_string order_type;
+    buy_sell_to_string buy_sell;
     string_of_float qty;
     string_of_float price;
     expiration_time

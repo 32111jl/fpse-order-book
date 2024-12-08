@@ -26,7 +26,7 @@ val get_bids : order_book -> Utils.Order_types.db_order list
 val get_asks : order_book -> Utils.Order_types.db_order list
 (** [get_asks order_book] returns the asks in the order book. *)
 
-val add_order : order_book -> Utils.Order_types.db_order -> (unit, string) result
+val add_order : order_book -> Utils.Order_types.db_order -> (Postgresql.result, string) result
 (** [add_order order_book order] adds an order to the order book, and updates the best bid/ask if necessary. *)
 
 val remove_order : order_book -> int -> (Postgresql.result, string) result

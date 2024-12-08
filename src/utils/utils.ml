@@ -40,3 +40,8 @@ let buy_sell_to_string (buy_sell : Order_types.buy_sell) =
   match buy_sell with
   | Order_types.Buy -> "BUY"
   | Order_types.Sell -> "SELL"
+
+let unwrap_id (id : int option) =
+  match id with
+  | Some id -> id
+  | None -> failwith "Order has no ID."

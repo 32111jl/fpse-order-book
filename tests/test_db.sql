@@ -7,7 +7,7 @@ DROP TABLE IF EXISTS securities CASCADE;
 -- \i src/database/schema.sql
 
 CREATE TABLE users (
-  id INTEGER PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   balance FLOAT NOT NULL
 );
@@ -19,7 +19,7 @@ CREATE TABLE securities (
 );
 
 CREATE TABLE orders (
-  id INTEGER PRIMARY KEY, -- use SERIAL instead?
+  id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id),
   security VARCHAR(10) REFERENCES securities(symbol),
   order_type VARCHAR(10) NOT NULL,

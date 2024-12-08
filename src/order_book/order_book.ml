@@ -37,7 +37,7 @@ let get_best_bid (order_book : order_book) : float option =
     match execute_query query [| order_book.security |] with
     | Ok result when result#ntuples > 0 ->
       let price = round_price (float_of_string (result#getvalue 0 0)) in
-      order_book.best_bid <- Some price;
+      order_book.best_bid <- Some price; (* should be unreachable *)
       Some price
     | _ -> None
 
@@ -56,7 +56,7 @@ let get_best_ask (order_book : order_book) : float option =
     match execute_query query [| order_book.security |] with
     | Ok result when result#ntuples > 0 ->
       let price = round_price (float_of_string (result#getvalue 0 0)) in
-      order_book.best_ask <- Some price;
+      order_book.best_ask <- Some price; (* should be unreachable *)
       Some price
     | _ -> None
 
@@ -75,7 +75,7 @@ let get_bids (order_book : order_book) : Utils.Order_types.db_order list =
   | Ok result ->
     let orders = ref [] in
     for i = 0 to result#ntuples - 1 do
-      let id = int_of_string (result#getvalue i 0) in
+      let id = Some (int_of_string (result#getvalue i 0)) in
       let user_id = int_of_string (result#getvalue i 1) in
       let qty = round_quantity (float_of_string (result#getvalue i 5)) in
       let price = round_price (float_of_string (result#getvalue i 6)) in
@@ -106,7 +106,7 @@ let get_asks (order_book : order_book) : Utils.Order_types.db_order list =
   | Ok result ->
     let orders = ref [] in
     for i = 0 to result#ntuples - 1 do
-      let id = int_of_string (result#getvalue i 0) in
+      let id = Some (int_of_string (result#getvalue i 0)) in
       let user_id = int_of_string (result#getvalue i 1) in
       let qty = round_quantity (float_of_string (result#getvalue i 5)) in
       let price = round_price (float_of_string (result#getvalue i 6)) in
@@ -123,8 +123,8 @@ let get_asks (order_book : order_book) : Utils.Order_types.db_order list =
   | Error _ -> [] (* see above, also execute_query only produces error if db is down or query is malformed... *)
 
 let add_order (book : order_book) (order : Utils.Order_types.db_order) = 
-  match create_order order.id order.user_id book.security order.order_type order.buy_sell order.qty (match get_price order with Some p -> p | None -> 0.0) with
-  | Ok _ ->
+  match create_order order.user_id book.security order.order_type order.buy_sell order.qty (match get_price order with Some p -> p | None -> 0.0) with
+  | Ok result ->
     (* immediately update best bid/ask *)
     (match order.order_type, order.buy_sell with
     | Limit { price; _ }, Buy | Margin price, Buy ->
@@ -140,7 +140,7 @@ let add_order (book : order_book) (order : Utils.Order_types.db_order) =
       | _ -> ())
       (* if price < (Option.value ~default:0.0 book.best_ask) then book.best_ask <- Some price *)
     | _ -> ()); (* no need to update best bid/ask for market orders *)
-    Ok ()
+    Ok result
   | Error e -> Error e
 
 let remove_order _order_book (order_id : int) = cancel_order order_id

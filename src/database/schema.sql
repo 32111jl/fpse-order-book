@@ -5,7 +5,7 @@
 
 -- users table
 CREATE TABLE IF NOT EXISTS users (
-  id SERIAL PRIMARY KEY,
+  id SERIAL PRIMARY KEY, -- SERIAL auto-increments for us
   name VARCHAR(255) NOT NULL,
   balance FLOAT NOT NULL
 );
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS positions (
 
 -- orders table
 CREATE TABLE IF NOT EXISTS orders (
-  id INTEGER PRIMARY KEY, -- SERIAL instead?
+  id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id),
   security VARCHAR(10) REFERENCES securities(symbol),
   order_type VARCHAR(10) NOT NULL, -- 'MARKET', 'LIMIT', 'MARGIN'
@@ -35,12 +35,12 @@ CREATE TABLE IF NOT EXISTS orders (
   quantity FLOAT NOT NULL,
   price FLOAT NOT NULL,
   status VARCHAR(10) DEFAULT 'ACTIVE', -- 'ACTIVE', 'FILLED', 'PARTIAL', 'EXPIRED', 'CANCELLED'
-  expiration_time FLOAT
+  expiration_time FLOAT -- NULLABLE
 );
 
 -- trades table
 CREATE TABLE IF NOT EXISTS trades (
-  id SERIAL PRIMARY KEY, -- SERIAL auto-increments for us
+  id SERIAL PRIMARY KEY,
   buy_order_id INTEGER REFERENCES orders(id), -- buyer's id
   sell_order_id INTEGER REFERENCES orders(id), -- seller's id
   security VARCHAR(10) REFERENCES securities(symbol),
