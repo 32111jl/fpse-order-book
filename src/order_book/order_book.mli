@@ -37,3 +37,6 @@ val remove_expired_orders : order_book -> float -> (Postgresql.result, string) r
 
 val check_order_exists : order_book -> int -> bool
 (** [check_order_exists order_book order_id] checks if an order with the given ID exists in the order book. *)
+
+val validate_order : order_book -> int -> string -> Utils.Order_types.buy_sell -> Utils.Order_types.order_type -> float -> Utils.Order_types.validation_result
+(** [validate_order order_book user_id security buy_sell qty] validates an order for the given user, security, buy/sell direction, and quantity. *)

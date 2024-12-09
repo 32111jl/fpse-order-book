@@ -21,3 +21,12 @@ type trade = {
   qty : float;              (* quantity to buy or sell *)
   price : float;            (* price at which the trade was executed *)
 }
+
+type validation_result =
+  | Valid
+  | InvalidMarket of string
+  | InvalidFunds of float * float
+  | InvalidShares of float * float
+  | NoPosition of string
+  | InvalidUser
+  | DatabaseError
