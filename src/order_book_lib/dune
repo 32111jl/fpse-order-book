@@ -1,0 +1,8 @@
+(library
+ (name order_book_lib)
+ (public_name fpse-order-book.order_book_lib)
+ (modules order_book order_types matching_engine market_conditions utils)
+ (libraries core unix)
+ (preprocess (pps bisect_ppx)))
+
+

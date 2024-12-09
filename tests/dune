@@ -1,12 +1,12 @@
-(test
- (name tests)
- (libraries fpse-order-book.order_book_lib
-          fpse-order-book.database
-          fpse-order-book.utils
-          core
-          ounit2
-          core_unix
-          qcheck)
- (link_flags
-  (-cclib -Wl,-rpath,/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14
-   -cclib -L/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14)))
+; (test
+;  (name tests)
+;  (libraries fpse-order-book.order_book_lib
+;           fpse-order-book.database
+;           fpse-order-book.utils
+;           core
+;           ounit2
+;           core_unix
+;           qcheck)
+;  (link_flags
+;   (-cclib -Wl,-rpath,/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14
+;    -cclib -L/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14)))

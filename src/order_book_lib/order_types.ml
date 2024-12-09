@@ -22,6 +22,19 @@ type trade = {
   price : float;            (* price at which the trade was executed *)
 }
 
+type order_book = {
+  security : string;
+  mutable orders : db_order list;
+  mutable best_bid : float option;
+  mutable best_ask : float option;
+}
+
+
+type market_conditions = {
+  bid_ask_spread : float;
+  margin_rate : float;
+}
+
 type validation_result =
   | Valid
   | InvalidMarket of string

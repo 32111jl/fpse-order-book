@@ -2,4 +2,4 @@
  (name database)
  (public_name fpse-order-book.database)
  (modules db)
- (libraries postgresql utils))
+ (libraries postgresql fpse-order-book.order_book_lib))

@@ -1,5 +1,5 @@
 (library
- (name utils)
- (public_name fpse-order-book.utils)
- (modules order_types utils order_sync)
+ (name order_sync)
+ (public_name fpse-order-book.order_sync)
+ (modules order_sync)
  (libraries unix))

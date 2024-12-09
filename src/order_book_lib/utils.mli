@@ -1,13 +1,4 @@
 
-(* the Order_types module is to export the types used in the order book *)
-module Order_types : sig
-  include module type of Order_types
-end
-
-module Order_sync : sig
-  include module type of Order_sync
-end
-
 val round_price : float -> float
 (** [round_price price] rounds the price to the nearest cent *)
 
