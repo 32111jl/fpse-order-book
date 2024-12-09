@@ -1,4 +1,5 @@
 module Order_types = Order_types
+module Order_sync = Order_sync
 
 let round_price (price : float) = Float.round (price *. 100.) /. 100.
 

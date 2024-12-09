@@ -5,6 +5,7 @@ open Database.Db
 open Printer
 open Utils
 open Utils.Order_types
+open Utils.Order_sync
 
 let order_books = Hashtbl.create 16              (* in-memory list of order books, key: security, value: order_book *)
 (* I think in theory this is faster for lookups, but I'm not sure vs just the database. Need to *)
@@ -41,10 +42,11 @@ let get_or_create_order_book (security : string) : order_book =
     ob
 
 let place_order (security : string) (order_type : order_type) (buy_sell : buy_sell) (qty : float) (user_id : int) =
-  let book = get_or_create_order_book security in
-  match order_type with
-    | Market ->
-      (* double-check that market orders can be placed *)
+  sync_ob_operation (fun () ->
+    let book = get_or_create_order_book security in
+    match order_type with
+      | Market ->
+        (* double-check that market orders can be placed *)
       (match buy_sell with
       | Buy ->
         (match book.best_ask with
@@ -76,6 +78,7 @@ let place_order (security : string) (order_type : order_type) (buy_sell : buy_se
           (if buy_sell = Buy then "BUY" else "SELL")
           qty price order_id
       | Error e -> Printf.printf "Error placing limit/margin order: %s\n" e
+  )
 
 let rec get_security () =
   Printf.printf "Enter the security (eg. AAPL): ";
@@ -121,10 +124,10 @@ let rec get_quantity () =
     Printf.printf "Invalid quantity. Please enter a valid number.\n";
     get_quantity ()
 
-(* let has_active_orders (security : string) : bool =
+let has_active_orders (security : string) : bool =
   match get_active_orders_given_security security with
   | Ok result -> result#ntuples > 0
-  | Error _ -> false *)
+  | Error _ -> false
 
 (* let set_user_id () = 
   match !curr_user_id with
@@ -241,24 +244,26 @@ let cancel_order () =
     else ignore (cancel_order order_id)
   )
 
-(* let view_book () = 
+let view_book () = 
   print_available_securities ~active_only:true available_securities;
   Printf.printf "\nEnter the security (or 'ALL' to view all): ";
   match String.uppercase_ascii (read_line ()) with  
   | "ALL" -> 
     List.iter (fun security ->
-      let ob = get_or_create_order_book security in
-      if has_active_orders security then begin
-      Printf.printf "\n === Order Book for %s ===\n" security;
-        print_orders ob
-      end
+      sync_ob_operation (fun () ->
+        let ob = get_or_create_order_book security in
+        if has_active_orders security then begin
+        Printf.printf "\n === Order Book for %s ===\n" security;
+          print_orders ob
+        end
+      )
     ) available_securities
   | security ->
     if List.mem security available_securities then
       let ob = get_or_create_order_book security in
       Printf.printf "\n === Order Book for %s ===\n" security;
       print_orders ob
-    else Printf.printf "Invalid security. Please choose from the list above.\n" *)
+    else Printf.printf "Invalid security. Please choose from the list above.\n"
 
 let view_my_orders () = 
   with_user_id (fun user_id ->
@@ -329,14 +334,16 @@ let load_orders_from_db () =
 (* continuously match orders as long as there are any *)
 let continuous_matching_thread () =
   while true do
-    load_orders_from_db ();
+    (* load_orders_from_db (); *)
     List.iter (fun security ->
-      let ob = get_or_create_order_book security in
-      let market_conditions = create_dynamic_market_conditions security in
-      let trades = match_orders ob market_conditions in
-      List.iter (fun trade -> print_trade trade security) trades
+      sync_ob_operation (fun () ->
+        let ob = get_or_create_order_book security in
+        let market_conditions = create_dynamic_market_conditions security in
+        let trades = match_orders ob market_conditions in
+        List.iter (fun trade -> print_trade trade security) trades
+      )
     ) available_securities;
-    Unix.sleepf 0.001
+    (* Unix.sleepf 0.001 *)
   done
 
 (* create some orders for a given security (id's will be negative to indicate they're computer-generated) *)
@@ -440,16 +447,18 @@ and trading_menu user_name user_id =
   Printf.printf "2. View My Orders\n";
   Printf.printf "3. View Account Balance\n";
   Printf.printf "4. Cancel Order\n";
-  Printf.printf "5. Log Out\n";
-  Printf.printf "6. Exit\n";
+  Printf.printf "5. View Order Book\n";
+  Printf.printf "6. Log Out\n";
+  Printf.printf "7. Exit\n";
   Printf.printf "------------------------\n";
   match String.trim (read_line ()) with
   | "1" -> place_order_interactive (); trading_menu user_name user_id
   | "2" -> view_my_orders (); trading_menu user_name user_id
   | "3" -> view_bal (); trading_menu user_name user_id
   | "4" -> cancel_order (); trading_menu user_name user_id
-  | "5" -> curr_user_id := None; login_menu ()
-  | "6" -> Printf.printf "Goodbye! Thanks for trading!\n"
+  | "5" -> view_book (); trading_menu user_name user_id
+  | "6" -> curr_user_id := None; login_menu ()
+  | "7" -> Printf.printf "Goodbye! Thanks for trading!\n"
   | _ -> 
     Printf.printf "Invalid option. Please type a valid number.\n";
     trading_menu user_name user_id

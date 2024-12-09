@@ -1,5 +1,6 @@
 open Database.Db
 open Utils
+open Utils.Order_sync
 open Utils.Order_types
 
 type order_book = {
@@ -23,10 +24,11 @@ let get_price (order : Utils.Order_types.db_order) : float option =
   | Margin price -> Some price
 
 let get_best_bid (order_book : order_book) : float option = 
-  match order_book.best_bid with
-  | Some _ as bid -> bid
-  | None ->
-    let query = "
+  sync_ob_operation (fun () ->
+    match order_book.best_bid with
+    | Some _ as bid -> bid
+    | None ->
+      let query = "
       SELECT price FROM orders 
       WHERE security = $1 
       AND buy_sell = 'BUY' 
@@ -34,18 +36,20 @@ let get_best_bid (order_book : order_book) : float option =
       AND order_type != 'MARKET'
       ORDER BY price DESC 
       LIMIT 1" in
-    match execute_query query [| order_book.security |] with
-    | Ok result when result#ntuples > 0 ->
-      let price = round_price (float_of_string (result#getvalue 0 0)) in
-      order_book.best_bid <- Some price; (* should be unreachable *)
-      Some price
-    | _ -> None
+      match execute_query query [| order_book.security |] with
+      | Ok result when result#ntuples > 0 ->
+        let price = round_price (float_of_string (result#getvalue 0 0)) in
+        order_book.best_bid <- Some price; (* should be unreachable *)
+        Some price
+      | _ -> None
+  )
 
 let get_best_ask (order_book : order_book) : float option = 
-  match order_book.best_ask with
-  | Some _ as ask -> ask
-  | None ->
-    let query = "
+  sync_ob_operation (fun () ->
+    match order_book.best_ask with
+    | Some _ as ask -> ask
+    | None ->
+      let query = "
       SELECT price FROM orders 
       WHERE security = $1 
       AND buy_sell = 'SELL' 
@@ -53,12 +57,13 @@ let get_best_ask (order_book : order_book) : float option =
       AND order_type != 'MARKET'
       ORDER BY price ASC 
       LIMIT 1" in
-    match execute_query query [| order_book.security |] with
-    | Ok result when result#ntuples > 0 ->
-      let price = round_price (float_of_string (result#getvalue 0 0)) in
-      order_book.best_ask <- Some price; (* should be unreachable *)
-      Some price
-    | _ -> None
+      match execute_query query [| order_book.security |] with
+      | Ok result when result#ntuples > 0 ->
+        let price = round_price (float_of_string (result#getvalue 0 0)) in
+        order_book.best_ask <- Some price; (* should be unreachable *)
+        Some price
+      | _ -> None
+  )
 
 let get_bids (order_book : order_book) : Utils.Order_types.db_order list = 
   let query = "
@@ -132,18 +137,24 @@ let add_order (book : order_book) (order : Utils.Order_types.db_order) =
       | Some best_bid when price > best_bid -> book.best_bid <- Some price
       | None -> book.best_bid <- Some price
       | _ -> ())
-      (* if price > (Option.value ~default:0.0 book.best_bid) then book.best_bid <- Some price *)
+    (* if price > (Option.value ~default:0.0 book.best_bid) then book.best_bid <- Some price *)
     | Limit { price; _ }, Sell | Margin price, Sell ->
       (match book.best_ask with
       | Some best_ask when price < best_ask -> book.best_ask <- Some price
       | None -> book.best_ask <- Some price
       | _ -> ())
-      (* if price < (Option.value ~default:0.0 book.best_ask) then book.best_ask <- Some price *)
+    (* if price < (Option.value ~default:0.0 book.best_ask) then book.best_ask <- Some price *)
     | _ -> ()); (* no need to update best bid/ask for market orders *)
     Ok result
   | Error e -> Error e
 
-let remove_order _order_book (order_id : int) = cancel_order order_id
+let remove_order (order_book : order_book) (order_id : int) = 
+  sync_ob_operation (fun () ->
+    let result = cancel_order order_id in
+    order_book.best_bid <- None; (* yes/no? *)
+    order_book.best_ask <- None;
+    result
+  )
 
 let remove_expired_orders _order_book (curr_time : float) = remove_expired_orders curr_time
 

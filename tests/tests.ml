@@ -133,17 +133,17 @@ module DbTests = struct
   let test_get_trades_by_security _ =
     let user1 = create_user_in_db "GetTradesSecUser1" 1000.0 in
     let user2 = create_user_in_db "GetTradesSecUser2" 1000.0 in
-    match create_order user1 "TSLA" (Limit { price = 700.0; expiration = None }) Buy 1.0 700.0 with
+    match create_order user1 "SEC3" (Limit { price = 300.0; expiration = None }) Buy 1.0 300.0 with
     | Ok result ->
       let buy_order_id = int_of_string (result#getvalue 0 0) in
-      (match create_order user2 "TSLA" (Limit { price = 700.0; expiration = None }) Sell 1.0 700.0 with
+      (match create_order user2 "SEC3" (Limit { price = 300.0; expiration = None }) Sell 1.0 300.0 with
       | Ok result ->
         let sell_order_id = int_of_string (result#getvalue 0 0) in
-        ignore (record_trade ~buy_order_id ~sell_order_id ~security:"TSLA" ~qty:1.0 ~price:700.0);
-        (match get_trades_by_security "TSLA" with
+        ignore (record_trade ~buy_order_id ~sell_order_id ~security:"SEC3" ~qty:1.0 ~price:300.0);
+        (match get_trades_by_security "SEC3" with
         | Ok result ->
           assert_equal 1 result#ntuples;
-          assert_equal "TSLA" (result#getvalue 0 3);
+          assert_equal "SEC3" (result#getvalue 0 3);
           assert_equal 1.0 (float_of_string (result#getvalue 0 4))
         | Error e -> assert_failure ("Failed to get trades by security: " ^ e))
       | Error e -> assert_failure ("Failed to create sell order: " ^ e))
