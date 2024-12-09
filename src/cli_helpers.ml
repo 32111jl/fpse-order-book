@@ -156,12 +156,6 @@ let execute_trade (buy_order : db_order) (sell_order : db_order) : (float * floa
     (trade_qty, trade_price)
   )
 
-let get_price (order : db_order) : float option = 
-  match order.order_type with
-  | Market -> None
-  | Limit { price; _ } -> Some price
-  | Margin price -> Some price
-
 let add_order (book : order_book) (order : db_order) : (Postgresql.result, string) result =
   match create_order_in_db order.user_id order.security order.order_type order.buy_sell order.qty (match get_price order with Some p -> p | None -> 0.0) with
   | Ok result ->

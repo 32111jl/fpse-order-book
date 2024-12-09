@@ -6,6 +6,8 @@ val add_order_to_memory : Order_types.order_book -> Order_types.db_order -> unit
 
 val remove_order_from_memory : Order_types.order_book -> int -> unit
 
+val get_price : Order_types.db_order -> float option
+
 val get_best_bid : Order_types.order_book -> float option
 
 val get_best_ask : Order_types.order_book -> float option

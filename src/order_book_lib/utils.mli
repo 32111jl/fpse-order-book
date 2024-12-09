@@ -31,3 +31,6 @@ val buy_sell_to_string : Order_types.buy_sell -> string
 
 val unwrap_id : int option -> int
 (** [unwrap_id id] returns the id if it exists, otherwise raises an exception *)
+
+val compare_price_options : float option -> float option -> int
+(** [compare_price_options price1 price2] compares two price options *)
