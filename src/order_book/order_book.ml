@@ -144,6 +144,20 @@ let add_order (book : order_book) (order : Utils.Order_types.db_order) =
     Ok result
   | Error e -> Error e
 
+let add_order_to_memory (book : order_book) (order : db_order) =
+  match order.order_type, order.buy_sell with
+  | Limit { price; _ }, Buy | Margin price, Buy ->
+    (match book.best_bid with
+    | Some best_bid when price > best_bid -> book.best_bid <- Some price
+    | None -> book.best_bid <- Some price
+    | _ -> ())
+  | Limit { price; _ }, Sell | Margin price, Sell ->
+    (match book.best_ask with
+    | Some best_ask when price < best_ask -> book.best_ask <- Some price
+    | None -> book.best_ask <- Some price
+    | _ -> ())
+  | _ -> ()
+
 let remove_order (order_book : order_book) (order_id : int) = 
   sync_ob_operation (fun () ->
     let result = cancel_order order_id in

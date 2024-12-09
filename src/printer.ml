@@ -40,7 +40,7 @@ let print_orders (ob : order_book) =
 let print_user_orders (user_id : int) =
   match get_active_orders_given_user user_id with
   | Ok result ->
-    if result#ntuples = 0 then Printf.printf "You have no active orders!\n"
+    if result#ntuples = 0 then (Printf.printf "You have no active orders!\n"; false)
     else begin
       Printf.printf "\nYour Active Orders:\n";
       Printf.printf "------------------------\n";
@@ -52,9 +52,12 @@ let print_user_orders (user_id : int) =
           (float_of_string (result#getvalue i 5))  (* quantity *)
           (result#getvalue i 6)  (* price *)
       done;
-      Printf.printf "------------------------\n"
+      Printf.printf "------------------------\n";
+      true
     end
-  | Error _ -> Printf.printf "Error fetching orders\n"
+  | Error _ ->
+    Printf.printf "Error fetching orders\n";
+    false
 
 let print_market_prices (securities : string list) =
   Printf.printf "\nCurrent Market Prices:\n";

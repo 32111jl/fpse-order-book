@@ -9,6 +9,7 @@ open Utils.Order_sync
 
 let order_books = Hashtbl.create 16              (* in-memory list of order books, key: security, value: order_book *)
 (* I think in theory this is faster for lookups, but I'm not sure vs just the database. Need to *)
+(* let order_book_mutexes = Hashtbl.create 16       in-memory list of order book mutexes, key: security, value: mutex *)
 let curr_user_id = ref None                      (* current user ID, shouldn't change after setting it *)
 
 (* list of currently-available securities *)
@@ -17,12 +18,19 @@ let available_securities = [
   "META"; "NVDA"; "RKLB"; "RIVN"; "PLTR"
 ]
 
-
 let get_base_price (security : string) : float = match security with
   | "AAPL" -> 150.0 | "MSFT" -> 330.0 | "GOOGL" -> 140.0
   | "AMZN" -> 180.0 | "TSLA" -> 300.0 | "META" -> 300.0
   | "NVDA" -> 400.0 | "RKLB" -> 20.0 | "RIVN" -> 15.0
   | "PLTR" -> 53.0 | _ -> 100.0
+
+(* let get_or_create_mutex (security : string) : Mutex.t =
+  match Hashtbl.find_opt order_book_mutexes security with
+  | Some mutex -> mutex
+  | None ->
+    let mutex = Mutex.create () in
+    Hashtbl.add order_book_mutexes security mutex;
+    mutex *)
 
 let with_user_id f = match !curr_user_id with
   | Some user_id -> f user_id
@@ -68,9 +76,9 @@ let rec get_security () =
 
 let rec get_order_direction () =
   Printf.printf "Enter the order direction (Buy/Sell): ";
-  match read_line () with
-  | "Buy" -> Buy
-  | "Sell" -> Sell
+  match String.lowercase_ascii (String.trim (read_line ())) with
+  | "buy" -> Buy
+  | "sell" -> Sell
   | _ -> 
     Printf.printf "Invalid order direction. Please enter either Buy or Sell.\n";
     get_order_direction ()
@@ -136,17 +144,21 @@ let place_order_interactive () =
 
 let cancel_order () = 
   with_user_id (fun user_id ->
-    print_user_orders user_id;
-    Printf.printf "Enter the order ID to cancel (or -1 to go back): ";
-    let order_id = int_of_string (read_line ()) in
-    if order_id = -1 then Printf.printf "Cancellation aborted.\n"
-    else ignore (cancel_order order_id)
+    let has_orders = print_user_orders user_id in
+    (* if user has no orders, it'll print "you have no active orders" and not prompt the user any further *)
+    if not has_orders then ()
+    else begin
+      Printf.printf "Enter the order ID to cancel (or -1 to go back): ";
+      let order_id = int_of_string (String.trim (read_line ())) in
+      if order_id = -1 then Printf.printf "Cancellation aborted.\n"
+      else ignore (cancel_order order_id)
+    end
   )
 
 let view_book () = 
   print_available_securities ~active_only:true available_securities;
   Printf.printf "\nEnter the security (or 'ALL' to view all): ";
-  match String.uppercase_ascii (read_line ()) with  
+  match String.uppercase_ascii (String.trim (read_line ())) with  
   | "ALL" -> 
     List.iter (fun security ->
       sync_ob_operation (fun () ->
@@ -166,7 +178,7 @@ let view_book () =
 
 let view_my_orders () = 
   with_user_id (fun user_id ->
-    print_user_orders user_id
+    ignore (print_user_orders user_id)
   )
 
 let view_bal () = 
@@ -223,9 +235,7 @@ let load_orders_from_db () =
           buy_sell = string_to_buy_sell (result#getvalue i 4);
           qty = float_of_string (result#getvalue i 5);
         } in
-        match add_order order_book order with
-        | Ok _ -> ()
-        | Error e -> Printf.printf "Error adding order to order book: %s\n" e
+        add_order_to_memory order_book order
       done
     | Error _ -> ()
   ) available_securities
@@ -242,7 +252,7 @@ let continuous_matching_thread () =
         List.iter (fun trade -> print_trade trade security) trades
       )
     ) available_securities;
-    (* Unix.sleepf 0.001 *)
+    Unix.sleepf 0.01
   done
 
 let initialize_system () =
@@ -271,7 +281,7 @@ let login () =
 
 let create_account () =
   Printf.printf "Enter your name: ";
-  let name = String.trim (read_line ()) in
+  let name = String.trim (read_line ()) in (* removes whitespace from beginning/end, but not internal whitespace *)
   if String.length name = 0 then begin
     Printf.printf "Name cannot be empty.\n";
     None
@@ -310,8 +320,8 @@ and trading_menu user_name user_id =
   Printf.printf "\n------------------------\n";
   Printf.printf "Welcome, %s (User ID: %d)!\n" user_name user_id;
   Printf.printf "1. Place Order\n";
-  Printf.printf "2. View My Orders\n";
-  Printf.printf "3. View Account Balance\n";
+  Printf.printf "2. View Active Orders\n";
+  Printf.printf "3. View Account Balance and Positions\n";
   Printf.printf "4. Cancel Order\n";
   Printf.printf "5. View Order Book\n";
   Printf.printf "6. Log Out\n";
