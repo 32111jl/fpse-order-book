@@ -151,7 +151,10 @@ let cancel_order () =
       Printf.printf "Enter the order ID to cancel (or -1 to go back): ";
       let order_id = int_of_string (String.trim (read_line ())) in
       if order_id = -1 then Printf.printf "Cancellation aborted.\n"
-      else ignore (cancel_order order_id)
+      else
+        match cancel_order order_id with
+        | Ok _ -> Printf.printf "Order %d cancelled successfully!\n" order_id
+        | Error e -> Printf.printf "Error cancelling order %d: %s. Try again.\n" order_id e
     end
   )
 
