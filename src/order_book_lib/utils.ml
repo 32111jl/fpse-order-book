@@ -47,6 +47,6 @@ let unwrap_id (id : int option) =
 let compare_price_options (price1 : float option) (price2 : float option) =
   match price1, price2 with
   | Some p1, Some p2 -> compare p1 p2
-  | Some _, None -> 1
-  | None, Some _ -> -1
-  | None, None -> 0
+  | Some _, None -> -1 (* non-market order comes after *)
+  | None, Some _ -> 1 (* market order has priority *)
+  | None, None -> 0 (* both are market orders *)

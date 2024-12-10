@@ -1,6 +1,7 @@
 open Order_book_lib.Order_book
 open Order_book_lib.Order_types
 open Order_book_lib.Matching_engine
+open Order_book_lib.Market_conditions
 open Order_book_lib.Utils
 open Database.Db
 open Order_sync
@@ -20,6 +21,11 @@ let get_base_price (security : string) : float = match security with
   | "AMZN" -> 180.0 | "TSLA" -> 300.0 | "META" -> 300.0
   | "NVDA" -> 400.0 | "RKLB" -> 20.0 | "RIVN" -> 15.0
   | "PLTR" -> 53.0 | _ -> 100.0
+
+let create_dynamic_market_conditions (security : string) : market_conditions =
+  let base_price = get_base_price security in
+  let spread = base_price *. 0.10 in (* 10% of base price, can be changed *)
+  create_market_conditions spread 0.5
 
 let get_or_create_order_book (security : string) : order_book =
   match Hashtbl.find_opt order_books security with
@@ -155,13 +161,13 @@ let execute_trade (buy_order : db_order) (sell_order : db_order) : (float * floa
     let _ = update_user_balance sell_order.user_id total_cost in
     (trade_qty, trade_price)
   )
-
+(* 
 let add_order (book : order_book) (order : db_order) : (Postgresql.result, string) result =
   match create_order_in_db order.user_id order.security order.order_type order.buy_sell order.qty (match get_price order with Some p -> p | None -> 0.0) with
   | Ok result ->
     add_order_to_memory book order;
     Ok result
-  | Error e -> Error e
+  | Error e -> Error e *)
 
 let cancel_order (order_id : int) =
   match cancel_order order_id with
@@ -177,9 +183,12 @@ let place_order_in_db_and_memory (security : string) (order_type : order_type) (
   sync_ob_operation (fun () ->
     let book = get_or_create_order_book security in
     let order = { id = None; user_id; security; order_type; buy_sell; qty } in
-    match add_order book order with
+    match create_order_in_db user_id security order_type buy_sell qty (match get_price order with Some p -> p | None -> 0.0) with
     | Ok result ->
       let order_id = int_of_string (result#getvalue 0 0) in
+      (* insert id before adding to memory *)
+      let order_with_id = { order with id = Some order_id } in
+      add_order_to_memory book order_with_id;
       (match order_type with
       | Market -> Printf.printf "Market %s order placed for %.2f shares of %s (order ID: %d)\n"
           (if buy_sell = Buy then "BUY" else "SELL") qty security order_id
@@ -295,3 +304,44 @@ let create_user (curr_user_id : int option ref) (name : string) =
   with Failure _ -> 
     Printf.printf "Error creating account. Please try again.\n";
     None
+
+(* continuously match orders as long as there are any *)
+let continuous_matching_thread () =
+  while true do
+    List.iter (fun security ->
+      sync_ob_operation (fun () ->
+        let ob = get_or_create_order_book security in
+        let market_conditions = create_dynamic_market_conditions security in
+        let trades = match_orders ob market_conditions in
+        List.iter (fun trade ->
+          Printf.printf "Trade1: %d %d\n" trade.buy_order_id trade.sell_order_id;
+          match (get_order trade.buy_order_id, get_order trade.sell_order_id) with
+          | Ok buy_res, Ok sell_res ->
+            Printf.printf "Trade2: %d %d\n" trade.buy_order_id trade.sell_order_id;
+            let buy_order = {
+              id = Some (int_of_string (buy_res#getvalue 0 0));
+              user_id = int_of_string (buy_res#getvalue 0 1);
+              security = security;
+              order_type = string_to_order_type (buy_res#getvalue 0 3) (float_of_string (buy_res#getvalue 0 6));
+              buy_sell = string_to_buy_sell (buy_res#getvalue 0 4);
+              qty = float_of_string (buy_res#getvalue 0 5)
+            } in
+            let sell_order = {
+              id = Some (int_of_string (sell_res#getvalue 0 0));
+              user_id = int_of_string (sell_res#getvalue 0 1);
+              security = security;
+              order_type = string_to_order_type (sell_res#getvalue 0 3) (float_of_string (sell_res#getvalue 0 6));
+              buy_sell = string_to_buy_sell (sell_res#getvalue 0 4);
+              qty = float_of_string (sell_res#getvalue 0 5)
+            } in
+            (match execute_trade buy_order sell_order with
+            | Ok (_qty, _price) ->
+              print_trade trade security;
+            | Error e ->
+              Printf.printf "Trade execution error: %s\n" e)
+          | _ -> Printf.printf "Error fetching orders for trade.\n"
+        ) trades
+      )
+    ) available_securities;
+    Unix.sleepf 0.001
+  done

@@ -72,16 +72,21 @@ let get_bids (book : order_book) : db_order list =
   |> List.sort (fun order1 order2 -> 
     let price_cmp = compare_price_options (get_price order2) (get_price order1) in
     (* if price ties, sort by order id (lowest id = placed earlier = higher priority) *)
-    if price_cmp = 0 then compare (order1.id) (order2.id) else price_cmp
+    if price_cmp = 0 then match order1.id, order2.id with
+      | Some id1, Some id2 -> compare id1 id2
+      | _ -> 0
+    else price_cmp
   )
 
 let get_asks (book : order_book) : db_order list =
   List.filter (fun order -> order.buy_sell = Sell) book.orders
   |> List.sort (fun order1 order2 -> 
     let price_cmp = compare_price_options (get_price order1) (get_price order2) in
-    if price_cmp = 0 then compare (order1.id) (order2.id) else price_cmp
+    if price_cmp = 0 then match order1.id, order2.id with
+      | Some id1, Some id2 -> compare id1 id2
+      | _ -> 0
+    else price_cmp
   )
-
 
 let print_orders (book : order_book) =
   let bids = List.filter (fun order -> order.buy_sell = Buy) book.orders in

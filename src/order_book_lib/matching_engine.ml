@@ -3,13 +3,10 @@ open Order_types
 
 let get_trade_price (buy_order : db_order) (sell_order : db_order) : float =
   match sell_order.order_type with
-  | Market ->
-    (match buy_order.order_type with
-    | Limit { price; _ } -> price
-    | Margin p -> p
-    | Market -> failwith "Both cannot be market orders.")
-  | Limit { price; _ } -> price
-  | Margin p -> p
+  | Market -> (match get_price buy_order with
+    | Some p -> p
+    | None -> failwith "Both orders cannot be market orders")
+  | Limit { price; _ } | Margin price -> price
 
 (* looks at order book to find matching pairs of bids/asks *)
 let match_orders (order_book : order_book) (_market_conditions : market_conditions) : trade list =
@@ -36,6 +33,7 @@ let match_orders (order_book : order_book) (_market_conditions : market_conditio
           qty = trade_qty;
           price = trade_price;
         } in
+        Printf.printf "Trade match roers: %d %d\n" trade.buy_order_id trade.sell_order_id;
         let new_bids = 
           if best_bid.qty = trade_qty then List.filter (fun o -> o != best_bid) bids
           else 

@@ -1,10 +1,7 @@
 open Cli_helpers
 open Order_book_lib.Order_book
-open Order_book_lib.Market_conditions
-open Order_book_lib.Matching_engine
 open Order_book_lib.Order_types
 open Order_book_lib.Utils
-open Order_sync
 
 let curr_user_id = ref None                      (* current user ID, shouldn't change after setting it *)
 
@@ -17,11 +14,6 @@ let available_securities = [
 let with_user_id f = match !curr_user_id with
   | Some user_id -> f user_id
   | None -> Printf.printf "Please set your user ID first.\n"; ()
-
-let create_dynamic_market_conditions (security : string) : market_conditions =
-  let base_price = get_base_price security in
-  let spread = base_price *. 0.10 in (* 10% of base price, can be changed *)
-  create_market_conditions spread 0.5
 
 let get_or_create_order_book (security : string) : order_book =
   match Hashtbl.find_opt order_books security with
@@ -134,20 +126,6 @@ let view_book () =
     if List.mem security available_securities then
       view_order_book_security security
     else Printf.printf "Invalid security. Please choose from the list above.\n"
-
-(* continuously match orders as long as there are any *)
-let continuous_matching_thread () =
-  while true do
-    List.iter (fun security ->
-      sync_ob_operation (fun () ->
-        let ob = get_or_create_order_book security in
-        let market_conditions = create_dynamic_market_conditions security in
-        let trades = match_orders ob market_conditions in
-        List.iter (fun trade -> print_trade trade security) trades
-      )
-    ) available_securities;
-    Unix.sleepf 0.01
-  done
 
 let login () =
   Printf.printf "Enter your user ID: ";
