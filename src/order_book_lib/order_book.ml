@@ -60,9 +60,15 @@ let remove_order_from_memory (book : order_book) (order_id : int) =
 
 let get_price (order : db_order) : float option = 
   match order.order_type with
-  | Market -> None
+  | Market -> None (* should be unreachable *)
   | Limit { price; _ } -> Some price
   | Margin price -> Some price
+
+let virtual_price (order : db_order) : float option =
+  match order.order_type, order.buy_sell with
+  | Market, Buy -> Some max_float
+  | Market, Sell -> Some (-.max_float)
+  | _ -> get_price order
 
 let get_best_bid (book : order_book) : float option = book.best_bid
 let get_best_ask (book : order_book) : float option = book.best_ask
@@ -70,7 +76,7 @@ let get_best_ask (book : order_book) : float option = book.best_ask
 let get_bids (book : order_book) : db_order list =
   List.filter (fun order -> order.buy_sell = Buy) book.orders
   |> List.sort (fun order1 order2 -> 
-    let price_cmp = compare_price_options (get_price order2) (get_price order1) in
+    let price_cmp = compare_price_options (virtual_price order2) (virtual_price order1) in
     (* if price ties, sort by order id (lowest id = placed earlier = higher priority) *)
     if price_cmp = 0 then match order1.id, order2.id with
       | Some id1, Some id2 -> compare id1 id2
@@ -95,7 +101,7 @@ let print_orders (book : order_book) =
   Printf.printf "Bids:\n";
   List.iter (fun order ->
     let price = match order.order_type with
-      | Market -> "MARKET"
+      | Market -> "MARKET" (* should be unreachable *)
       | Limit { price; _ } -> Printf.sprintf "%.2f" price
       | Margin p -> Printf.sprintf "%.2f (Margin)" p
     in
@@ -105,7 +111,7 @@ let print_orders (book : order_book) =
   Printf.printf "\nAsks:\n";
   List.iter (fun order ->
     let price = match order.order_type with
-      | Market -> "MARKET"
+      | Market -> "MARKET" (* should be unreachable *)
       | Limit { price; _ } -> Printf.sprintf "%.2f" price
       | Margin p -> Printf.sprintf "%.2f (Margin)" p
     in

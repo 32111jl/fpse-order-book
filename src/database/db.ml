@@ -135,6 +135,10 @@ let get_active_orders_given_security (security : string) =
   let query = "SELECT * FROM orders WHERE security = $1 AND status IN ('ACTIVE', 'PARTIAL')" in
   execute_query query [| security |]
 
+let get_active_orders_given_user_and_security (user_id : int) (security : string) =
+  let query = "SELECT * FROM orders WHERE user_id = $1 AND security = $2 AND status IN ('ACTIVE', 'PARTIAL')" in
+  execute_query query [| string_of_int user_id; security |]
+
 let remove_expired_orders (current_time : float) =
   let query = "UPDATE orders SET status = 'EXPIRED'
               WHERE expiration_time IS NOT NULL AND expiration_time < $1
