@@ -27,10 +27,7 @@ val get_asks : order_book -> Utils.Order_types.db_order list
 (** [get_asks order_book] returns the asks in the order book. *)
 
 val add_order : order_book -> Utils.Order_types.db_order -> (Postgresql.result, string) result
-(** [add_order order_book order] adds an order to the order book, and updates the best bid/ask if necessary. *)
-
-val add_order_to_memory : order_book -> Utils.Order_types.db_order -> unit
-(** [add_order_to_memory order_book order] adds an order to the order book in memory, and updates the best bid/ask if necessary. *)
+(** [add_order order_book order] adds an order to the order book. *)
 
 val remove_order : order_book -> int -> (Postgresql.result, string) result
 (** [remove_order order_book order_id] removes an order with the given ID from the order book. *)
@@ -40,6 +37,3 @@ val remove_expired_orders : order_book -> float -> (Postgresql.result, string) r
 
 val check_order_exists : order_book -> int -> bool
 (** [check_order_exists order_book order_id] checks if an order with the given ID exists in the order book. *)
-
-val validate_order : order_book -> int -> string -> Utils.Order_types.buy_sell -> Utils.Order_types.order_type -> float -> Utils.Order_types.validation_result
-(** [validate_order order_book user_id security buy_sell qty] validates an order for the given user, security, buy/sell direction, and quantity. *)

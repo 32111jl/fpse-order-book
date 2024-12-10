@@ -4,10 +4,6 @@ module Order_types : sig
   include module type of Order_types
 end
 
-module Order_sync : sig
-  include module type of Order_sync
-end
-
 val round_price : float -> float
 (** [round_price price] rounds the price to the nearest cent *)
 
@@ -37,6 +33,3 @@ val string_to_buy_sell : string -> Order_types.buy_sell
 
 val buy_sell_to_string : Order_types.buy_sell -> string
 (** [buy_sell_to_string buy_sell] converts a buy/sell to a string *)
-
-val unwrap_id : int option -> int
-(** [unwrap_id id] returns the id if it exists, otherwise raises an exception *)

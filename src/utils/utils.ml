@@ -1,5 +1,4 @@
 module Order_types = Order_types
-module Order_sync = Order_sync
 
 let round_price (price : float) = Float.round (price *. 100.) /. 100.
 
@@ -23,7 +22,7 @@ let string_to_order_type (str : string) (price : float) =
   | "MARKET" -> Order_types.Market
   | "LIMIT" -> Order_types.Limit { price = price; expiration = None }
   | "MARGIN" -> Order_types.Margin price
-  | _ -> failwith ("Invalid order type: " ^ str) (* should never be reached since constructor doesn't contain other types *)
+  | _ -> failwith ("Invalid order type: " ^ str)
 
 let order_type_to_string (order_type : Order_types.order_type) =
   match order_type with
@@ -41,8 +40,3 @@ let buy_sell_to_string (buy_sell : Order_types.buy_sell) =
   match buy_sell with
   | Order_types.Buy -> "BUY"
   | Order_types.Sell -> "SELL"
-
-let unwrap_id (id : int option) =
-  match id with
-  | Some id -> id
-  | None -> failwith "Order has no ID."
