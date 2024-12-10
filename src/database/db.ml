@@ -6,7 +6,14 @@ open Utils
 (* to make database follow a certain schema: psql -U ob1 -d order_book -f src/database/schema.sql *)
 (* to view database: psql -U ob1 -d order_book *)
 (* to refresh test database: psql -U ob1 -d order_book -f src/database/test_data.sql *)
-let conn_info = "host=localhost dbname=order_book user=ob1 password=123"
+let get_conn_info () =
+  match Sys.getenv_opt "DATABASE_URL" with
+  | Some url -> url
+  | None -> 
+      Printf.eprintf "ERROR: DATABASE_URL environment variable not set\n";
+      exit 1
+
+let conn_info = get_conn_info ()
 
 (* COMMENTED OUT CODE: connection pooling if we want to support multiple concurrent users (NOT TESTED) *)
 (* let pool_size = 10
