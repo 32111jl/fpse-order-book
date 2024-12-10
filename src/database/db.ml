@@ -6,7 +6,14 @@ open Utils
 (* to make database follow a certain schema: psql -U ob1 -d order_book -f src/database/schema.sql *)
 (* to view database: psql -U ob1 -d order_book *)
 (* to refresh test database: psql -U ob1 -d order_book -f src/database/test_data.sql *)
-let conn_info = "host=localhost dbname=order_book user=ob1 password=123"
+let get_conn_info () =
+  match Sys.getenv_opt "DATABASE_URL" with
+  | Some url -> url
+  | None -> 
+      Printf.eprintf "ERROR: DATABASE_URL environment variable not set\n";
+      exit 1
+
+let conn_info = get_conn_info ()
 
 (* COMMENTED OUT CODE: connection pooling if we want to support multiple concurrent users (NOT TESTED) *)
 (* let pool_size = 10
@@ -41,7 +48,7 @@ let with_connection f =
     conn#finish;
     Error (Printexc.to_string e)
 
-let execute_query (query : string) (params : string array)   =
+let execute_query (query : string) (params : string array)  =
   (* match get_connection () with
   | Some conn -> 
     begin try
@@ -64,18 +71,23 @@ let execute_query (query : string) (params : string array)   =
   )
 
 (* user-related operations *)
-let create_user_in_db (id : int) (name : string) (balance : float) =
-  let query = "INSERT INTO users (id, name, balance) VALUES ($1, $2, $3)" in
-  execute_query query [| string_of_int id; name; string_of_float balance |]
+let create_user_in_db (name : string) (balance : float) =
+  let query = "INSERT INTO users (name, balance) VALUES ($1, $2) RETURNING id" in
+  match execute_query query [| name; string_of_float balance |] with
+  | Ok result -> int_of_string (result#getvalue 0 0) (* return the id of the new user *)
+  | Error _ -> failwith "Failed to create user"
+
+let get_user_name (user_id : int) =
+  let query = "SELECT name FROM users WHERE id = $1" in
+  match execute_query query [| string_of_int user_id |] with
+  | Ok result when result#ntuples > 0 -> Some (result#getvalue 0 0)
+  | _ -> None
 
 let get_user_balance (user_id : int) =
   let query = "SELECT balance FROM users WHERE id = $1" in
   match execute_query query [| string_of_int user_id |] with
-  | Ok result -> 
-    if result#ntuples > 0 then
-      Some (float_of_string (result#getvalue 0 0))
-    else None
-  | Error _ -> None
+  | Ok result when result#ntuples > 0 -> Some (float_of_string (result#getvalue 0 0))
+  | _ -> None
 
 let update_user_balance (user_id : int) (delta : float) =
   let query = "UPDATE users SET balance = balance + $1 WHERE id = $2" in
@@ -83,24 +95,25 @@ let update_user_balance (user_id : int) (delta : float) =
 
 
 (* order-related operations *)
-let create_order (id : int) (user_id : int) (security : string) (order_type : Order_types.order_type) (buy_sell : Order_types.buy_sell) (qty : float) (price : float) =
+let create_order (user_id : int) (security : string) (order_type : Order_types.order_type) (buy_sell : Order_types.buy_sell) (qty : float) (price : float) =
   let query = "
     INSERT INTO orders (
-      id, user_id, security, order_type, 
-      buy_sell, quantity, price, status
+      user_id, security, order_type, buy_sell, quantity, price, status, expiration_time
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, 'ACTIVE'
+      $1, $2, $3, $4, $5, $6, 'ACTIVE', NULLIF($7, 'NULL')::float
     ) RETURNING id" in
-  let order_type_str = order_type_to_string order_type in
-  let buy_sell_str = buy_sell_to_string buy_sell in
+  let expiration_time = match order_type with
+  | Limit { expiration = Some exp; _ } -> string_of_float exp
+  | _ -> "NULL"
+  in
   let params = [|
-    string_of_int id;
     string_of_int user_id;
     security;
-    order_type_str;
-    buy_sell_str;
+    order_type_to_string order_type;
+    buy_sell_to_string buy_sell;
     string_of_float qty;
-    string_of_float price
+    string_of_float price;
+    expiration_time
   |] in
   execute_query query params
 
@@ -129,7 +142,9 @@ let get_active_orders_given_security (security : string) =
   execute_query query [| security |]
 
 let remove_expired_orders (current_time : float) =
-  let query = "UPDATE orders SET status = 'EXPIRED' WHERE expiration_time < $1 AND status IN ('ACTIVE', 'PARTIAL')" in
+  let query = "UPDATE orders SET status = 'EXPIRED'
+              WHERE expiration_time IS NOT NULL AND expiration_time < $1
+              AND status IN ('ACTIVE', 'PARTIAL')" in
   execute_query query [| string_of_float current_time |]
 
 let cancel_order (order_id : int) =
@@ -171,8 +186,8 @@ let get_positions_value (user_id : int) =
 
 (* trade operations *)
 let record_trade ~buy_order_id ~sell_order_id ~security ~qty ~price =
-  let query = "INSERT INTO trades (id, buy_order_id, sell_order_id, security, quantity, price)
-                VALUES ($1, $2, $3, $4, $5, $6)" in
+  let query = "INSERT INTO trades (buy_order_id, sell_order_id, security, quantity, price)
+                VALUES ($1, $2, $3, $4, $5)" in
   execute_query query [| 
     string_of_int buy_order_id; 
     string_of_int sell_order_id; 
@@ -182,7 +197,10 @@ let record_trade ~buy_order_id ~sell_order_id ~security ~qty ~price =
   |]
 
 let get_trade_history (user_id : int) =
-  let query = "SELECT * FROM trades WHERE buy_order_id = $1 OR sell_order_id = $1" in
+  let query = "SELECT * FROM trades t
+                JOIN orders bo ON t.buy_order_id = bo.id
+                JOIN orders so ON t.sell_order_id = so.id
+                WHERE bo.user_id = $1 OR so.user_id = $1" in
   execute_query query [| string_of_int user_id |]
 
 let get_trades_by_security (security : string) =
