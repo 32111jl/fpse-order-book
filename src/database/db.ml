@@ -1,7 +1,7 @@
 open Postgresql
 open Result
 open Order_book_lib
-open Order_book_lib.Utils
+open Order_book_lib.Ob_utils
 
 (*  *)
 (* to make database follow a certain schema: psql -U ob1 -d order_book -f src/database/schema.sql *)

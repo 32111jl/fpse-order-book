@@ -1,7 +1,7 @@
 open Cli_helpers
 open Order_book_lib.Order_book
 open Order_book_lib.Order_types
-open Order_book_lib.Utils
+open Order_book_lib.Ob_utils
 
 let curr_user_id = ref None                      (* current user ID, shouldn't change after setting it *)
 

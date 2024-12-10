@@ -1,10 +1,10 @@
 (executable
  (name cli)
  (public_name order_book_app)
- (modules cli cli_helpers)
+ (modules cli cli_helpers trade)
  (libraries fpse-order-book.order_book_lib
             fpse-order-book.database
-            fpse-order-book.order_sync
+            fpse-order-book.utils
             threads
             postgresql)
  (link_flags

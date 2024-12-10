@@ -2,7 +2,7 @@
  (name tests)
  (libraries fpse-order-book.order_book_lib
           fpse-order-book.database
-          fpse-order-book.order_sync
+          fpse-order-book.utils
           core
           ounit2
           core_unix

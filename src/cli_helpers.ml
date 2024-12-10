@@ -2,25 +2,16 @@ open Order_book_lib.Order_book
 open Order_book_lib.Order_types
 open Order_book_lib.Matching_engine
 open Order_book_lib.Market_conditions
-open Order_book_lib.Utils
+open Order_book_lib.Ob_utils
 open Database.Db
-open Order_sync
+open Utils.Order_sync
+open Utils.Securities
+open Trade
 
 (* This module acts as a bridge between the CLI (user interaction) and underlying order book logic.
    This logic includes database operations (fetching, validation, updating the in-memory order book, etc.). *)
 
 let order_books = Hashtbl.create 16              (* in-memory list of order books, key: security, value: order_book *)
-
-let available_securities = [
-  "AAPL"; "MSFT"; "GOOGL"; "AMZN"; "TSLA"; 
-  "META"; "NVDA"; "RKLB"; "RIVN"; "PLTR"
-]
-
-let get_base_price (security : string) : float = match security with
-  | "AAPL" -> 150.0 | "MSFT" -> 330.0 | "GOOGL" -> 140.0
-  | "AMZN" -> 180.0 | "TSLA" -> 300.0 | "META" -> 300.0
-  | "NVDA" -> 400.0 | "RKLB" -> 20.0 | "RIVN" -> 15.0
-  | "PLTR" -> 53.0 | _ -> 100.0
 
 let create_dynamic_market_conditions (security : string) : market_conditions =
   let base_price = get_base_price security in
@@ -149,42 +140,6 @@ let validate_order (order_book : order_book) (user_id : int) (security : string)
     | Error msg -> InvalidMarket msg
     | Ok () -> validate_funds_and_shares order_book user_id security buy_sell order_type qty)
   | Limit _ | Margin _ -> validate_funds_and_shares order_book user_id security buy_sell order_type qty
-
-let execute_trade (buy_order : db_order) (sell_order : db_order) : (float * float, string) result =
-  let buy_id = unwrap_id buy_order.id in
-  let sell_id = unwrap_id sell_order.id in
-  let trade_qty = Float.min buy_order.qty sell_order.qty in
-  let trade_price = get_trade_price buy_order sell_order in
-  let total_cost = trade_price *. trade_qty in
-    
-  with_transaction (fun _conn ->
-  let _ = record_trade ~buy_order_id:buy_id ~sell_order_id:sell_id ~security:buy_order.security ~qty:trade_qty ~price:trade_price in
-    
-    let buy_qty_remaining = buy_order.qty -. trade_qty in
-    let sell_qty_remaining = sell_order.qty -. trade_qty in
-
-    let _ = update_order_qty buy_id buy_qty_remaining in
-    let _ = update_order_qty sell_id sell_qty_remaining in
-    
-    let _ = if buy_qty_remaining <= 0.0 then fill_order buy_id
-            else update_order_status buy_id "PARTIAL" in
-    let _ = if sell_qty_remaining <= 0.0 then fill_order sell_id
-            else update_order_status sell_id "PARTIAL" in
-    
-    let _ = update_position buy_order.user_id buy_order.security trade_qty in
-    let _ = update_position sell_order.user_id sell_order.security (-. trade_qty) in
-    
-    let _ = update_user_balance buy_order.user_id (-. total_cost) in
-    let _ = update_user_balance sell_order.user_id total_cost in
-    (trade_qty, trade_price)
-  )
-(* 
-let add_order (book : order_book) (order : db_order) : (Postgresql.result, string) result =
-  match create_order_in_db order.user_id order.security order.order_type order.buy_sell order.qty (match get_price order with Some p -> p | None -> 0.0) with
-  | Ok result ->
-    add_order_to_memory book order;
-    Ok result
-  | Error e -> Error e *)
 
 let cancel_order (order_id : int) =
   match cancel_order order_id with

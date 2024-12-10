@@ -4,7 +4,7 @@ open Order_book_lib.Order_book
 open Order_book_lib.Order_types
 open Order_book_lib.Matching_engine
 open Order_book_lib.Market_conditions
-open Order_book_lib.Utils
+open Order_book_lib.Ob_utils
 
 (* let test_setup () =
   let cmd = "PGPASSWORD=123 psql -U ob1 -d order_book -f tests/test_db.sql" in
