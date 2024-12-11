@@ -8,12 +8,14 @@
             threads
             postgresql)
  (link_flags
-  (-cclib -Wl,-rpath,/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14
-   -cclib -L/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14)))
+  (-cclib -Wl,-rpath,/opt/homebrew/Cellar/postgresql@16/16.6/lib
+  -cclib -L/opt/homebrew/Cellar/postgresql@16/16.6/lib))
+)
 
 (executable
  (name test_db_conn)
  (modules test_db_conn)
  (libraries fpse-order-book.database postgresql)
- (link_flags
-  (-cclib -Wl,-rpath,/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14)))
+ ; (link_flags
+ ;  (-cclib -Wl,-rpath,/opt/homebrew/Cellar/postgresql@14/14.15/lib/postgresql@14))
+  )
