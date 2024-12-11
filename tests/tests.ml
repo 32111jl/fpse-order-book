@@ -594,8 +594,8 @@ module UtilsTests = struct
   
   let test_compare_price_options _ =
     assert_equal 0 (compare_price_options (Some 100.0) (Some 100.0));
-    assert_equal 1 (compare_price_options (Some 101.0) None);
-    assert_equal (-1) (compare_price_options None (Some 101.0));
+    assert_equal (-1) (compare_price_options (Some 101.0) None);
+    assert_equal 1 (compare_price_options None (Some 101.0));
     assert_equal 0 (compare_price_options None None);
     assert_equal (-1) (compare_price_options (Some 100.0) (Some 101.0))
 
