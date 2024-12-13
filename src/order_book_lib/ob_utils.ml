@@ -1,3 +1,5 @@
+open Price
+
 let round_price (price : float) = Float.round (price *. 100.) /. 100.
 
 let round_quantity (qty : float) = Float.round (qty *. 100.) /. 100.
@@ -5,8 +7,10 @@ let round_quantity (qty : float) = Float.round (qty *. 100.) /. 100.
 let random_float_between (min : float) (max : float) =
   min +. Random.float (max -. min)
 
-let random_price (base : float) (spread : float) =
-  round_price (base +. Random.float spread -. (spread /. 2.))
+let random_price (base : price) (spread : price) =
+  let base_float = price_to_float base in
+  let spread_float = price_to_float spread in
+  float_to_price (round_price (base_float +. Random.float spread_float -. (spread_float /. 2.)))
 
 let current_time () = Unix.gettimeofday ()
 
@@ -15,7 +19,7 @@ let is_expired (expiration_time : float option) =
   | None -> false
   | Some t -> current_time () > t
 
-let string_to_order_type (str : string) (price : float) =
+let string_to_order_type (str : string) (price : price) =
   match String.uppercase_ascii str with
   | "MARKET" -> Order_types.Market
   | "LIMIT" -> Order_types.Limit { price = price; expiration = None }
@@ -44,9 +48,9 @@ let unwrap_id (id : int option) =
   | Some id -> id
   | None -> failwith "Order has no ID."
 
-let compare_price_options (price1 : float option) (price2 : float option) =
+let compare_price_options (price1 : price option) (price2 : price option) =
   match price1, price2 with
-  | Some p1, Some p2 -> compare p1 p2
+  | Some p1, Some p2 -> compare_price p1 p2
   | Some _, None -> -1 (* non-market order comes after *)
   | None, Some _ -> 1 (* market order has priority *)
   | None, None -> 0 (* both are market orders *)

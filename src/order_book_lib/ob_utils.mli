@@ -8,7 +8,7 @@ val round_quantity : float -> float
 val random_float_between : float -> float -> float
 (** [random_float_between min max] returns a random float between min and max *)
 
-val random_price : float -> float -> float
+val random_price : Price.price -> Price.price -> Price.price
 (** [random_price base spread] returns a random price between base and base + spread *)
 
 val current_time : unit -> float
@@ -17,7 +17,7 @@ val current_time : unit -> float
 val is_expired : float option -> bool
 (** [is_expired expiration] returns true if the expiration time has passed *)
 
-val string_to_order_type : string -> float -> Order_types.order_type
+val string_to_order_type : string -> Price.price -> Order_types.order_type
 (** [string_to_order_type order_type_str expiration] converts a string to an order type *)
 
 val order_type_to_string : Order_types.order_type -> string
@@ -32,5 +32,5 @@ val buy_sell_to_string : Order_types.buy_sell -> string
 val unwrap_id : int option -> int
 (** [unwrap_id id] returns the id if it exists, otherwise raises an exception *)
 
-val compare_price_options : float option -> float option -> int
+val compare_price_options : Price.price option -> Price.price option -> int
 (** [compare_price_options price1 price2] compares two price options *)

@@ -1,6 +1,6 @@
 (* Matches buy/sell orders based on price-time priority. *)
 
-val get_trade_price : Order_types.db_order -> Order_types.db_order -> float
+val get_trade_price : Order_types.db_order -> Order_types.db_order -> Price.price
 (** [get_trade_price buy_order sell_order] returns the trade price. *)
 
 val match_orders : Order_types.order_book -> Order_types.market_conditions -> Order_types.trade list

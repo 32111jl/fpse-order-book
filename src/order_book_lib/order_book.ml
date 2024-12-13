@@ -1,5 +1,6 @@
 open Order_types
 open Ob_utils
+open Price
 
 let create_order_book (security : string) = {
   security = security;
@@ -13,12 +14,12 @@ let add_order_to_memory (book : order_book) (order : db_order) =
   match order.order_type, order.buy_sell with
   | Limit { price; _ }, Buy | Margin price, Buy ->
     (match book.best_bid with
-    | Some curr when price > curr -> book.best_bid <- Some price
+    | Some curr when compare_price price curr > 0 -> book.best_bid <- Some price
     | None -> book.best_bid <- Some price
     | _ -> ())
   | Limit { price; _ }, Sell | Margin price, Sell ->
     (match book.best_ask with
-    | Some curr when price < curr -> book.best_ask <- Some price
+    | Some curr when compare_price price curr < 0 -> book.best_ask <- Some price
     | None -> book.best_ask <- Some price
     | _ -> ())
   | _ -> ()
@@ -43,10 +44,10 @@ let remove_order_from_memory (book : order_book) (order_id : int) =
     let price = match order.order_type with
       | Limit { price; _ } -> price
       | Margin price -> price
-      | Market -> 0.0
+      | Market -> float_to_price 0.0
     in
-    if price > acc then price else acc
-  ) 0.0 lst));
+    if compare_price price acc > 0 then price else acc
+  ) (float_to_price 0.0) lst));
   (* best_ask = lowest sell price *)
   book.best_ask <- (match sells with
   | [] -> None
@@ -54,24 +55,24 @@ let remove_order_from_memory (book : order_book) (order_id : int) =
     let price = match order.order_type with
       | Limit { price; _ } -> price
       | Margin price -> price
-      | Market -> max_float in
-    if price < acc then price else acc
-  ) max_float lst))
+      | Market -> price_max in
+    if compare_price price acc < 0 then price else acc
+  ) price_max lst))
 
-let get_price (order : db_order) : float option = 
+let get_price (order : db_order) : price option = 
   match order.order_type with
   | Market -> None (* should be unreachable *)
   | Limit { price; _ } -> Some price
   | Margin price -> Some price
 
-let virtual_price (order : db_order) : float option =
+let virtual_price (order : db_order) : price option =
   match order.order_type, order.buy_sell with
-  | Market, Buy -> Some max_float
-  | Market, Sell -> Some (-.max_float)
+  | Market, Buy -> Some price_max
+  | Market, Sell -> Some price_min
   | _ -> get_price order
 
-let get_best_bid (book : order_book) : float option = book.best_bid
-let get_best_ask (book : order_book) : float option = book.best_ask
+let get_best_bid (book : order_book) : price option = book.best_bid
+let get_best_ask (book : order_book) : price option = book.best_ask
 
 let get_bids (book : order_book) : db_order list =
   List.filter (fun order -> order.buy_sell = Buy) book.orders
@@ -100,24 +101,24 @@ let print_orders (book : order_book) =
 
   Printf.printf "Bids:\n";
   List.iter (fun order ->
-    let price = match order.order_type with
+    let price_str = match order.order_type with
       | Market -> "MARKET" (* should be unreachable *)
-      | Limit { price; _ } -> Printf.sprintf "%.2f" price
-      | Margin p -> Printf.sprintf "%.2f (Margin)" p
+      | Limit { price; _ } -> price_to_string price
+      | Margin p -> Printf.sprintf "%s (Margin)" (price_to_string p)
     in
-    Printf.printf "Price: $%s, Qty: %.2f\n" price order.qty
+    Printf.printf "Price: $%s, Qty: %.2f\n" price_str order.qty
   ) bids;
 
   Printf.printf "\nAsks:\n";
   List.iter (fun order ->
-    let price = match order.order_type with
+    let price_str = match order.order_type with
       | Market -> "MARKET" (* should be unreachable *)
-      | Limit { price; _ } -> Printf.sprintf "%.2f" price
-      | Margin p -> Printf.sprintf "%.2f (Margin)" p
+      | Limit { price; _ } -> price_to_string price
+      | Margin p -> Printf.sprintf "%s (Margin)" (price_to_string p)
     in
-    Printf.printf "Price: $%s, Qty: %.2f\n" price order.qty
+    Printf.printf "Price: $%s, Qty: %.2f\n" price_str order.qty
   ) asks
 
 let print_trade (trade : trade) (security : string) =
-  Printf.printf "Trade executed: %.2f units of %s between orders %d and %d at $%.2f.\n" 
-                trade.qty security trade.buy_order_id trade.sell_order_id trade.price
+  Printf.printf "Trade executed: %.2f units of %s between orders %d and %d at $%s.\n" 
+                trade.qty security trade.buy_order_id trade.sell_order_id (price_to_string trade.price)

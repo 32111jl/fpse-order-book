@@ -1,10 +1,11 @@
 open Order_book
 open Order_types
+open Price
 
-let get_trade_price (buy_order : db_order) (sell_order : db_order) : float =
+let get_trade_price (buy_order : db_order) (sell_order : db_order) : price =
   match sell_order.order_type with
   | Market -> (match get_price buy_order with
-    | Some p -> p
+    | Some p -> float_to_price p
     | None -> failwith "Both orders cannot be market orders")
   | Limit { price; _ } | Margin price -> price
 
@@ -20,7 +21,7 @@ let match_orders (order_book : order_book) (_market_conditions : market_conditio
       | Market, _ | _, Market -> true
       | _ -> 
         match order_book.best_bid, order_book.best_ask with
-        | Some bid_price, Some ask_price -> bid_price >= ask_price
+        | Some bid_price, Some ask_price -> compare_price bid_price ask_price >= 0
         | _ -> false
       in
       if can_match then
