@@ -15,7 +15,7 @@ CREATE TABLE users (
 
 CREATE TABLE securities (
   symbol TEXT PRIMARY KEY,
-  price DECIMAL(15,2) NOT NULL,
+  price INTEGER NOT NULL,
   status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -27,7 +27,7 @@ CREATE TABLE orders (
   order_type VARCHAR(10) NOT NULL,
   buy_sell VARCHAR(4) NOT NULL,
   quantity DECIMAL(15,2) NOT NULL,
-  price DECIMAL(15,2) NOT NULL,
+  price INTEGER NOT NULL,
   status VARCHAR(10) DEFAULT 'ACTIVE',
   expiration_time DECIMAL(15,2),
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -47,21 +47,21 @@ CREATE TABLE trades (
   sell_order_id BIGINT REFERENCES orders(id),
   security TEXT REFERENCES securities(symbol),
   quantity DECIMAL(15,2) NOT NULL,
-  price DECIMAL(15,2) NOT NULL,
+  price INTEGER NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 INSERT INTO securities (symbol, price, status) VALUES
-  ('AAPL', 150.00, 'ACTIVE'),
-  ('MSFT', 330.00, 'ACTIVE'),
-  ('GOOGL', 140.00, 'ACTIVE'),
-  ('AMZN', 180.00, 'ACTIVE'),
-  ('TSLA', 300.00, 'ACTIVE'),
-  ('META', 300.00, 'ACTIVE'),
-  ('NVDA', 400.00, 'ACTIVE'),
-  ('RKLB', 20.00, 'ACTIVE'),
-  ('RIVN', 15.00, 'ACTIVE'),
-  ('PLTR', 53.00, 'ACTIVE')
+  ('AAPL', 150000, 'ACTIVE'),
+  ('MSFT', 330000, 'ACTIVE'),
+  ('GOOGL', 140000, 'ACTIVE'),
+  ('AMZN', 180000, 'ACTIVE'),
+  ('TSLA', 300000, 'ACTIVE'),
+  ('META', 300000, 'ACTIVE'),
+  ('NVDA', 400000, 'ACTIVE'),
+  ('RKLB', 20000, 'ACTIVE'),
+  ('RIVN', 15000, 'ACTIVE'),
+  ('PLTR', 53000, 'ACTIVE')
 ON CONFLICT (symbol) DO NOTHING;
 
 CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);

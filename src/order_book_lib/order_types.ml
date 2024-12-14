@@ -34,8 +34,8 @@ type order_book = {
 
 
 type market_conditions = {
-  bid_ask_spread : float;
-  margin_rate : float;
+  bid_ask_spread : float;      (* percentage +/- base price *)
+  margin_rate : float;        (* percentage above the current price *)
 }
 
 type validation_result =

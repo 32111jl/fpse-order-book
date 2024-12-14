@@ -6,7 +6,7 @@ let get_trade_price (buy_order : db_order) (sell_order : db_order) : price =
   match sell_order.order_type with
   | Market -> (match get_price buy_order with
     | Some price -> price
-    | None -> failwith "Both orders cannot be market orders")
+    | None -> failwith "Both orders cannot be market orders.")
   | Limit { price; _ } | Margin price -> price
 
 (* looks at order book to find matching pairs of bids/asks *)
@@ -35,13 +35,13 @@ let match_orders (order_book : order_book) (_market_conditions : market_conditio
           price = trade_price;
         } in
         let new_bids = 
-          if best_bid.qty = trade_qty then List.filter (fun o -> o != best_bid) bids
+          if Float.equal best_bid.qty trade_qty then List.filter (fun o -> o != best_bid) bids
           else 
             let updated_bid = { best_bid with qty = best_bid.qty -. trade_qty } in
             updated_bid :: (List.filter (fun o -> o != best_bid) bids)
         in
         let new_asks = 
-          if best_ask.qty = trade_qty then List.filter (fun o -> o != best_ask) asks
+          if Float.equal best_ask.qty trade_qty then List.filter (fun o -> o != best_ask) asks
           else
             let updated_ask = { best_ask with qty = best_ask.qty -. trade_qty } in
             updated_ask :: (List.filter (fun o -> o != best_ask) asks)

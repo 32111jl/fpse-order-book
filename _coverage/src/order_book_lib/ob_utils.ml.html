@@ -22,58 +22,62 @@
     <div id="report">
       <div id="lines-layer">
         <pre>
-<a id="L1"></a><span class="visited"> </span>
+<a id="L1"></a><span > </span>
 <a id="L2"></a><span > </span>
 <a id="L3"></a><span class="visited"> </span>
 <a id="L4"></a><span > </span>
-<a id="L5"></a><span > </span>
-<a id="L6"></a><span class="visited"> </span>
+<a id="L5"></a><span class="visited"> </span>
+<a id="L6"></a><span > </span>
 <a id="L7"></a><span > </span>
-<a id="L8"></a><span > </span>
-<a id="L9"></a><span class="visited"> </span>
+<a id="L8"></a><span class="visited"> </span>
+<a id="L9"></a><span > </span>
 <a id="L10"></a><span > </span>
 <a id="L11"></a><span class="visited"> </span>
-<a id="L12"></a><span > </span>
-<a id="L13"></a><span > </span>
-<a id="L14"></a><span class="visited"> </span>
+<a id="L12"></a><span class="visited"> </span>
+<a id="L13"></a><span class="visited"> </span>
+<a id="L14"></a><span > </span>
 <a id="L15"></a><span class="visited"> </span>
-<a id="L16"></a><span class="visited"> </span>
+<a id="L16"></a><span > </span>
 <a id="L17"></a><span > </span>
-<a id="L18"></a><span > </span>
+<a id="L18"></a><span class="visited"> </span>
 <a id="L19"></a><span class="visited"> </span>
 <a id="L20"></a><span class="visited"> </span>
-<a id="L21"></a><span class="visited"> </span>
-<a id="L22"></a><span class="visited"> </span>
+<a id="L21"></a><span > </span>
+<a id="L22"></a><span > </span>
 <a id="L23"></a><span class="visited"> </span>
-<a id="L24"></a><span > </span>
-<a id="L25"></a><span > </span>
+<a id="L24"></a><span class="visited"> </span>
+<a id="L25"></a><span class="visited"> </span>
 <a id="L26"></a><span class="visited"> </span>
 <a id="L27"></a><span class="visited"> </span>
-<a id="L28"></a><span class="visited"> </span>
-<a id="L29"></a><span class="visited"> </span>
-<a id="L30"></a><span > </span>
-<a id="L31"></a><span > </span>
+<a id="L28"></a><span > </span>
+<a id="L29"></a><span > </span>
+<a id="L30"></a><span class="visited"> </span>
+<a id="L31"></a><span class="visited"> </span>
 <a id="L32"></a><span class="visited"> </span>
 <a id="L33"></a><span class="visited"> </span>
-<a id="L34"></a><span class="visited"> </span>
-<a id="L35"></a><span class="visited"> </span>
-<a id="L36"></a><span > </span>
-<a id="L37"></a><span > </span>
+<a id="L34"></a><span > </span>
+<a id="L35"></a><span > </span>
+<a id="L36"></a><span class="visited"> </span>
+<a id="L37"></a><span class="visited"> </span>
 <a id="L38"></a><span class="visited"> </span>
 <a id="L39"></a><span class="visited"> </span>
-<a id="L40"></a><span class="visited"> </span>
+<a id="L40"></a><span > </span>
 <a id="L41"></a><span > </span>
-<a id="L42"></a><span > </span>
+<a id="L42"></a><span class="visited"> </span>
 <a id="L43"></a><span class="visited"> </span>
 <a id="L44"></a><span class="visited"> </span>
-<a id="L45"></a><span class="visited"> </span>
+<a id="L45"></a><span > </span>
 <a id="L46"></a><span > </span>
-<a id="L47"></a><span > </span>
+<a id="L47"></a><span class="visited"> </span>
 <a id="L48"></a><span class="visited"> </span>
 <a id="L49"></a><span class="visited"> </span>
-<a id="L50"></a><span class="visited"> </span>
-<a id="L51"></a><span class="visited"> </span>
+<a id="L50"></a><span > </span>
+<a id="L51"></a><span > </span>
 <a id="L52"></a><span class="visited"> </span>
+<a id="L53"></a><span class="visited"> </span>
+<a id="L54"></a><span class="visited"> </span>
+<a id="L55"></a><span class="visited"> </span>
+<a id="L56"></a><span class="visited"> </span>
 </pre>
       </div>
       <div id="text-layer">
@@ -130,58 +134,66 @@
 <a href="#L50">50</a>
 <a href="#L51">51</a>
 <a href="#L52">52</a>
+<a href="#L53">53</a>
+<a href="#L54">54</a>
+<a href="#L55">55</a>
+<a href="#L56">56</a>
 </pre>
-<pre><code class="ocaml">let round_price (price : float) = <span data-count="4">F</span>loat.roun<span data-count="4">d</span> (price *. 100.) /. 100.
+<pre><code class="ocaml">open Price
+
+let round_price (price : float) = <span data-count="4">F</span>loat.roun<span data-count="4">d</span> (price *. 100.) /. 100.
 
 let round_quantity (qty : float) = <span data-count="2">F</span>loat.roun<span data-count="2">d</span> (qty *. 100.) /. 100.
 
 let random_float_between (min : float) (max : float) =
   <span data-count="1">m</span>in +. Random.floa<span data-count="1">t</span> (max -. min)
 
-let random_price (base : float) (spread : float) =
-  <span data-count="1">r</span>ound_price (base +. Random.floa<span data-count="1">t</span> spread -. (spread /. 2.))
+let random_price (base : price) (spread : price) =
+  <span data-count="1">l</span>et base_float = price_to_float base in
+  <span data-count="1">l</span>et spread_float = price_to_float spread in
+  <span data-count="1">f</span>loat_to_price (round_pric<span data-count="1">e</span> (base_float +. Random.floa<span data-count="1">t</span> spread_float -. (spread_float /. 2.)))
 
-let current_time () = <span data-count="6">U</span>nix.gettimeofday ()
+let current_time () = <span data-count="4">U</span>nix.gettimeofday ()
 
 let is_expired (expiration_time : float option) = 
   <span data-count="3">m</span>atch expiration_time with
   | <span data-count="1">N</span>one -&gt; false
   | <span data-count="2">S</span>ome t -&gt; current_tim<span data-count="2">e</span> () &gt; t
 
-let string_to_order_type (str : string) (price : float) =
-  <span data-count="34">m</span>atch String.uppercase_ascii str with
+let string_to_order_type (str : string) (price : price) =
+  <span data-count="4">m</span>atch String.uppercase_ascii str with
   | <span data-count="1">"</span>MARKET" -&gt; Order_types.Market
-  | <span data-count="31">"</span>LIMIT" -&gt; Order_types.Limit { price = price; expiration = None }
+  | <span data-count="1">"</span>LIMIT" -&gt; Order_types.Limit { price = price; expiration = None }
   | <span data-count="1">"</span>MARGIN" -&gt; Order_types.Margin price
   | <span data-count="1">_</span> -&gt; failwith ("Invalid order type: " ^ str) (* should never be reached since constructor doesn't contain other types *)
 
 let order_type_to_string (order_type : Order_types.order_type) =
-  <span data-count="6">m</span>atch order_type with
-  | <span data-count="2">O</span>rder_types.Market -&gt; "MARKET"
-  | <span data-count="3">O</span>rder_types.Limit _ -&gt; "LIMIT"
+  <span data-count="11">m</span>atch order_type with
+  | <span data-count="1">O</span>rder_types.Market -&gt; "MARKET"
+  | <span data-count="9">O</span>rder_types.Limit _ -&gt; "LIMIT"
   | <span data-count="1">O</span>rder_types.Margin _ -&gt; "MARGIN"
 
 let string_to_buy_sell (str : string) =
-  <span data-count="33">m</span>atch String.uppercase_ascii str with
-  | <span data-count="15">"</span>BUY" -&gt; Order_types.Buy
-  | <span data-count="17">"</span>SELL" -&gt; Order_types.Sell
+  <span data-count="4">m</span>atch String.uppercase_ascii str with
+  | <span data-count="2">"</span>BUY" -&gt; Order_types.Buy
+  | <span data-count="1">"</span>SELL" -&gt; Order_types.Sell
   | <span data-count="1">_</span> -&gt; failwith ("Invalid buy/sell: " ^ str)
 
 let buy_sell_to_string (buy_sell : Order_types.buy_sell) =
-  <span data-count="5">m</span>atch buy_sell with
-  | <span data-count="1">O</span>rder_types.Buy -&gt; "BUY"
-  | <span data-count="4">O</span>rder_types.Sell -&gt; "SELL"
+  <span data-count="10">m</span>atch buy_sell with
+  | <span data-count="7">O</span>rder_types.Buy -&gt; "BUY"
+  | <span data-count="3">O</span>rder_types.Sell -&gt; "SELL"
 
 let unwrap_id (id : int option) =
-  <span data-count="4">m</span>atch id with
-  | <span data-count="3">S</span>ome id -&gt; id
-  | <span data-count="1">N</span>one -&gt; failwith "Order has no ID."
+  <span data-count="3">m</span>atch id with
+  | <span data-count="1">S</span>ome id -&gt; id
+  | <span data-count="2">N</span>one -&gt; failwith "Order has no ID."
 
-let compare_price_options (price1 : float option) (price2 : float option) =
-  <span data-count="31233016">m</span>atch price1, price2 with
-  | <span data-count="31233012">S</span>ome p1, Some p2 -&gt; compare p1 p2
+let compare_price_options (price1 : price option) (price2 : price option) =
+  <span data-count="9">m</span>atch price1, price2 with
+  | <span data-count="6">S</span>ome p1, Some p2 -&gt; compare_price p1 p2
   | <span data-count="1">S</span>ome _, None -&gt; -1 (* non-market order comes after *)
-  | <span data-count="2">N</span>one, Some _ -&gt; 1 (* market order has priority *)
+  | <span data-count="1">N</span>one, Some _ -&gt; 1 (* market order has priority *)
   | <span data-count="1">N</span>one, None -&gt; 0 (* both are market orders *)
 </code></pre>
       </div>

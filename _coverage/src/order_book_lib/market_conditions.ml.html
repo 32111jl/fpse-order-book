@@ -25,29 +25,71 @@
 <a id="L1"></a><span > </span>
 <a id="L2"></a><span > </span>
 <a id="L3"></a><span > </span>
-<a id="L4"></a><span class="visited"> </span>
-<a id="L5"></a><span > </span>
+<a id="L4"></a><span > </span>
+<a id="L5"></a><span class="visited"> </span>
 <a id="L6"></a><span > </span>
-<a id="L7"></a><span class="visited"> </span>
+<a id="L7"></a><span > </span>
+<a id="L8"></a><span class="visited"> </span>
+<a id="L9"></a><span > </span>
+<a id="L10"></a><span > </span>
+<a id="L11"></a><span class="visited"> </span>
+<a id="L12"></a><span class="visited"> </span>
+<a id="L13"></a><span > </span>
+<a id="L14"></a><span class="visited"> </span>
+<a id="L15"></a><span > </span>
+<a id="L16"></a><span class="visited"> </span>
+<a id="L17"></a><span class="visited"> </span>
+<a id="L18"></a><span class="visited"> </span>
+<a id="L19"></a><span class="visited"> </span>
+<a id="L20"></a><span > </span>
+<a id="L21"></a><span class="visited"> </span>
 </pre>
       </div>
       <div id="text-layer">
         <pre id="line-numbers">
-<a href="#L1">1</a>
-<a href="#L2">2</a>
-<a href="#L3">3</a>
-<a href="#L4">4</a>
-<a href="#L5">5</a>
-<a href="#L6">6</a>
-<a href="#L7">7</a>
+<a href="#L1"> 1</a>
+<a href="#L2"> 2</a>
+<a href="#L3"> 3</a>
+<a href="#L4"> 4</a>
+<a href="#L5"> 5</a>
+<a href="#L6"> 6</a>
+<a href="#L7"> 7</a>
+<a href="#L8"> 8</a>
+<a href="#L9"> 9</a>
+<a href="#L10">10</a>
+<a href="#L11">11</a>
+<a href="#L12">12</a>
+<a href="#L13">13</a>
+<a href="#L14">14</a>
+<a href="#L15">15</a>
+<a href="#L16">16</a>
+<a href="#L17">17</a>
+<a href="#L18">18</a>
+<a href="#L19">19</a>
+<a href="#L20">20</a>
+<a href="#L21">21</a>
 </pre>
 <pre><code class="ocaml">open Order_types
+open Price
 
 let create_market_conditions (bid_ask_spread : float) (margin_rate : float) = 
-  <span data-count="313350663">{</span> bid_ask_spread = bid_ask_spread; margin_rate = margin_rate }
+  <span data-count="7">{</span> bid_ask_spread = bid_ask_spread; margin_rate = margin_rate }
 
 let get_margin_rate (market_conditions : market_conditions) = 
   <span data-count="2">m</span>arket_conditions.margin_rate
+
+let check_spread (market_conds : market_conditions) (base_price : price) (order_price : price) : spread_check_result =
+  <span data-count="4">l</span>et base_float = price_to_float base_price in
+  <span data-count="4">l</span>et max_deviation = base_float *. market_conds.bid_ask_spread in
+  let max_price = float_to_price (base_float +. max_deviation) in
+  <span data-count="4">l</span>et min_price = float_to_price (base_float -. max_deviation) in
+  
+  <span data-count="4">i</span>f compare_pric<span data-count="4">e</span> order_price max_price &gt; 0 then
+    <span data-count="1">P</span>riceTooHigh (order_price, max_price)
+  else <span data-count="3">i</span>f compare_pric<span data-count="3">e</span> order_price min_price &lt; 0 then
+    <span data-count="1">P</span>riceTooLow (order_price, min_price)
+  else
+    <span data-count="2">V</span>alidPrice
 </code></pre>
       </div>
     </div>

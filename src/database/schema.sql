@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- securities table
 CREATE TABLE IF NOT EXISTS securities (
   symbol TEXT PRIMARY KEY,
-  price DECIMAL(15,2) NOT NULL,
+  price INTEGER NOT NULL,
   status VARCHAR(10) NOT NULL DEFAULT 'ACTIVE',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS trades (
   sell_order_id BIGINT REFERENCES orders(id),
   security TEXT REFERENCES securities(symbol),
   quantity DECIMAL(15,2) NOT NULL,
-  price DECIMAL(15,2) NOT NULL,
+  price INTEGER NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

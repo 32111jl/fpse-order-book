@@ -76,7 +76,7 @@ let execute_query (query : string) (params : string array)  =
   )
 
 (* user-related operations *)
-let create_user_in_db (name : string) (balance : float) =
+let create_user_in_db (name : string) (balance : float) : int =
   let query = "INSERT INTO users (name, balance) VALUES ($1, $2) RETURNING id" in
   match execute_query query [| name; string_of_float balance |] with
   | Ok result -> int_of_string (result#getvalue 0 0) (* return the id of the new user *)
@@ -117,7 +117,7 @@ let create_order_in_db (user_id : int) (security : string) (order_type : Order_t
     order_type_to_string order_type;
     buy_sell_to_string buy_sell;
     string_of_float qty;
-    string_of_int price;
+    price_to_string price;
     expiration_time
   |] in
   execute_query query params
@@ -194,7 +194,7 @@ let get_positions_value (user_id : int) =
 
 
 (* trade operations *)
-let record_trade ~buy_order_id ~sell_order_id ~security ~qty ~price =
+let record_trade ~buy_order_id ~sell_order_id ~security ~qty ~(price : price) =
   let query = "INSERT INTO trades (buy_order_id, sell_order_id, security, quantity, price)
                 VALUES ($1, $2, $3, $4, $5)" in
   execute_query query [| 
@@ -202,7 +202,7 @@ let record_trade ~buy_order_id ~sell_order_id ~security ~qty ~price =
     string_of_int sell_order_id; 
     security; 
     string_of_float qty; 
-    string_of_float price 
+    price_to_string price
   |]
 
 let get_trade_history (user_id : int) =
@@ -218,9 +218,9 @@ let get_trades_by_security (security : string) =
 
 
 (* security operations *)
-let create_security (symbol : string) (price : float) = 
+let create_security (symbol : string) (price : price) = 
   let query = "INSERT INTO securities (symbol, price) VALUES ($1, $2)" in
-  execute_query query [| symbol; string_of_float price |]
+  execute_query query [| symbol; price_to_string price |]
 
 let update_security_status (symbol : string) (status : string) = 
   let query = "UPDATE securities SET status = $1 WHERE symbol = $2" in
