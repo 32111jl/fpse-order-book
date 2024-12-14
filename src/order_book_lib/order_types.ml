@@ -42,7 +42,14 @@ type validation_result =
   | Valid
   | InvalidMarket of string
   | InvalidFunds of price * price
-  | InvalidShares of price * price
+  | InvalidShares of float * float
+  | InvalidPrice of string
   | NoPosition of string
   | InvalidUser
   | DatabaseError
+
+
+type spread_check_result = 
+  | ValidPrice
+  | PriceTooHigh of price * price (* (order price, max allowed price) *)
+  | PriceTooLow of price * price (* (order price, min allowed price) *)

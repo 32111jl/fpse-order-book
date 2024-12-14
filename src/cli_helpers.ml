@@ -3,6 +3,7 @@ open Order_book_lib.Order_types
 open Order_book_lib.Matching_engine
 open Order_book_lib.Market_conditions
 open Order_book_lib.Ob_utils
+open Order_book_lib.Price
 open Database.Db
 open Utils.Order_sync
 open Utils.Securities
@@ -15,8 +16,8 @@ let order_books = Hashtbl.create 16              (* in-memory list of order book
 
 let create_dynamic_market_conditions (security : string) : market_conditions =
   let base_price = get_base_price security in
-  let spread = base_price *. 0.10 in (* 10% of base price, can be changed *)
-  create_market_conditions spread 0.5
+  let max_spread_deviation = 0.25 *. base_price in (* 25% of base price, can be changed *)
+  create_market_conditions max_spread_deviation 0.5
 
 let get_or_create_order_book (security : string) : order_book =
   match Hashtbl.find_opt order_books security with
@@ -72,6 +73,21 @@ let print_available_securities ?(active_only=false) (securities : string list) =
     Printf.printf "\n"
   end
 
+let validate_price_spread (security : string) (order_type : order_type) : validation_result =
+  match order_type with
+  | Market -> Valid (* no need to verify spread for market orders *)
+  | Limit { price; _ } | Margin price ->
+    let base_price = float_to_price (get_base_price security) in
+    let market_conditions = create_dynamic_market_conditions security in
+    match check_spread market_conditions base_price price with
+    | ValidPrice -> Valid
+    | PriceTooHigh (price, max) -> 
+      InvalidPrice (Printf.sprintf "Price $%s too high. Maximum allowed: $%s" 
+        (price_to_string price) (price_to_string max))
+    | PriceTooLow (price, min) ->
+      InvalidPrice (Printf.sprintf "Price $%s too low. Minimum allowed: $%s"
+        (price_to_string price) (price_to_string min))
+
 let validate_market_liquidity (book : order_book) (buy_sell : buy_sell) : (unit, string) result =
   match buy_sell with
   (* for market orders, check if there are any orders in the order book *)
@@ -85,16 +101,17 @@ let validate_market_liquidity (book : order_book) (buy_sell : buy_sell) : (unit,
 let validate_funds_and_shares (order_book : order_book) (user_id : int) (security : string) (buy_sell : buy_sell) (order_type : order_type) (qty : float) : validation_result =
   match get_user_balance user_id with
   | None -> InvalidUser
-  | Some balance ->
+  | Some balance_float ->
+    let balance = float_to_price balance_float in
     let cost = match order_type with
       | Market ->
         if buy_sell = Buy then
           match get_best_ask order_book with
-          | Some price -> price *. qty
-          | None -> 0.0
-        else 0.0
-      | Limit { price; _ } -> if buy_sell = Buy then price *. qty else 0.0
-      | Margin price -> if buy_sell = Buy then price *. 0.5 else 0.0
+          | Some price -> price * int_of_float qty
+          | None -> 0
+        else 0
+      | Limit { price; _ } -> if buy_sell = Buy then price * int_of_float qty else 0
+      | Margin price -> if buy_sell = Buy then price * int_of_float (0.5 *. qty) else 0
     in
     (* check if user has enough money to place the order *)
     if buy_sell = Buy && cost > balance then
@@ -117,6 +134,7 @@ let validate_funds_and_shares (order_book : order_book) (user_id : int) (securit
           match get_active_orders_given_user_and_security user_id security with
           | Error _ -> DatabaseError
           | Ok orders ->
+            (* find if there are other orders with shares up for sale *)
             let allocated_shares = 
               let rec sum_sells i acc =
                 if i >= orders#ntuples then acc
@@ -133,13 +151,17 @@ let validate_funds_and_shares (order_book : order_book) (user_id : int) (securit
             end else Valid)
     else Valid
 
-let validate_order (order_book : order_book) (user_id : int) (security : string) (buy_sell : buy_sell) (order_type : order_type) (qty : float) : validation_result =
-  match order_type with
-  | Market ->
-    (match validate_market_liquidity order_book buy_sell with
-    | Error msg -> InvalidMarket msg
-    | Ok () -> validate_funds_and_shares order_book user_id security buy_sell order_type qty)
-  | Limit _ | Margin _ -> validate_funds_and_shares order_book user_id security buy_sell order_type qty
+let validate_order (order_book : order_book) (user_id : int) (security : string) 
+  (buy_sell : buy_sell) (order_type : order_type) (qty : float) : validation_result =
+  match validate_price_spread security order_type with
+  | Valid ->
+    (match order_type with
+    | Market ->
+      (match validate_market_liquidity order_book buy_sell with
+      | Error msg -> InvalidMarket msg
+      | Ok () -> validate_funds_and_shares order_book user_id security buy_sell order_type qty)
+    | Limit _ | Margin _ -> validate_funds_and_shares order_book user_id security buy_sell order_type qty)
+  | InvalidPrice _ | InvalidUser | DatabaseError | InvalidMarket _ | InvalidFunds (_, _) | InvalidShares (_, _) | NoPosition _ as e -> e
 
 let cancel_order (order_id : int) =
   match cancel_order order_id with
@@ -155,7 +177,7 @@ let cancel_order (order_id : int) =
 let db_result_to_order (result : Postgresql.result) (security : string) : db_order =
   let order_id = int_of_string (result#getvalue 0 0) in
   let user_id = int_of_string (result#getvalue 0 1) in
-  let order_type = string_to_order_type (result#getvalue 0 3) (float_of_string (result#getvalue 0 6)) in
+  let order_type = string_to_order_type (result#getvalue 0 3) (int_of_string (result#getvalue 0 6)) in
   let buy_sell = string_to_buy_sell (result#getvalue 0 4) in
   let qty = float_of_string (result#getvalue 0 5) in
   { id = Some order_id; user_id; security; order_type; buy_sell; qty }
@@ -164,7 +186,7 @@ let place_order_in_db_and_memory (security : string) (order_type : order_type) (
   sync_ob_operation (fun () ->
     let book = get_or_create_order_book security in
     let order = { id = None; user_id; security; order_type; buy_sell; qty } in
-    match create_order_in_db user_id security order_type buy_sell qty (match get_price order with Some p -> p | None -> 0.0) with
+    match create_order_in_db user_id security order_type buy_sell qty (match get_price order with Some p -> p | None -> 0) with
     | Ok result ->
       let order_id = int_of_string (result#getvalue 0 0) in
       (* insert id before adding to memory *)
@@ -197,7 +219,7 @@ let place_order_in_db_and_memory (security : string) (order_type : order_type) (
         Printf.printf "%s %s order placed: %.2f shares at $%.2f (order ID: %d).\n"
           (match order_type with Limit _ -> "Limit" | Margin _ -> "Margin" | _ -> "")
           (if buy_sell = Buy then "BUY" else "SELL") qty 
-          (match get_price order_with_id with Some p -> p | None -> 0.0) 
+          (match get_price order_with_id with Some p -> price_to_float p | None -> 0.0) 
           order_id)
     | Error e -> Printf.printf "Error placing order: %s\n" e
   )
@@ -218,7 +240,7 @@ let refresh_and_print_book_for_security (security : string) =
         id = Some (int_of_string (result#getvalue i 0));
         user_id = int_of_string (result#getvalue i 1);
         security = security;
-        order_type = string_to_order_type (result#getvalue i 3) (float_of_string (result#getvalue i 6));
+        order_type = string_to_order_type (result#getvalue i 3) (int_of_string (result#getvalue i 6));
         buy_sell = string_to_buy_sell (result#getvalue i 4);
         qty = float_of_string (result#getvalue i 5);
       } in
@@ -242,7 +264,7 @@ let load_orders_from_db_into_memory () =
           id = Some (int_of_string (result#getvalue i 0));
           user_id = int_of_string (result#getvalue i 1);
           security = security;
-          order_type = string_to_order_type (result#getvalue i 3) (float_of_string (result#getvalue i 6));
+          order_type = string_to_order_type (result#getvalue i 3) (int_of_string (result#getvalue i 6));
           buy_sell = string_to_buy_sell (result#getvalue i 4);
           qty = float_of_string (result#getvalue i 5);
         } in

@@ -2,6 +2,7 @@ open Postgresql
 open Result
 open Order_book_lib
 open Order_book_lib.Ob_utils
+open Order_book_lib.Price
 
 (*  *)
 (* to make database follow a certain schema: psql -U ob1 -d order_book -f src/database/schema.sql *)
@@ -99,7 +100,7 @@ let update_user_balance (user_id : int) (delta : float) =
 
 
 (* order-related operations *)
-let create_order_in_db (user_id : int) (security : string) (order_type : Order_types.order_type) (buy_sell : Order_types.buy_sell) (qty : float) (price : float) =
+let create_order_in_db (user_id : int) (security : string) (order_type : Order_types.order_type) (buy_sell : Order_types.buy_sell) (qty : float) (price : price) =
   let query = "
     INSERT INTO orders (
       user_id, security, order_type, buy_sell, quantity, price, status, expiration_time
@@ -116,7 +117,7 @@ let create_order_in_db (user_id : int) (security : string) (order_type : Order_t
     order_type_to_string order_type;
     buy_sell_to_string buy_sell;
     string_of_float qty;
-    string_of_float price;
+    string_of_int price;
     expiration_time
   |] in
   execute_query query params

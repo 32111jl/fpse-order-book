@@ -3,3 +3,6 @@ val create_market_conditions : float -> float -> Order_types.market_conditions
 
 val get_margin_rate : Order_types.market_conditions -> float
 (** [get_margin_rate market_conditions] returns the margin rate. *)
+
+val check_spread : Order_types.market_conditions -> Price.price -> Price.price -> Order_types.spread_check_result
+(** [check_spread market_conditions base_price order_price] checks if the order price is within the allowed spread (+/- 25% of base price). *)

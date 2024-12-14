@@ -2,7 +2,7 @@ open Cli_helpers
 open Order_book_lib.Order_book
 open Order_book_lib.Order_types
 open Order_book_lib.Ob_utils
-
+open Order_book_lib.Price
 let curr_user_id = ref None                      (* current user ID, shouldn't change after setting it *)
 
 (* list of currently-available securities *)
@@ -47,10 +47,10 @@ let rec get_order_type () =
   | "limit" ->
     Printf.printf "Enter the price: ";
     let curr_price = float_of_string (String.trim (read_line ())) in
-    Limit { price = curr_price; expiration = Some (current_time () +. 3600.0) }
+    Limit { price = float_to_price curr_price; expiration = Some (current_time () +. 3600.0) }
   | "margin" ->
     Printf.printf "Enter the price: ";
-    Margin (float_of_string (String.trim (read_line ())))
+    Margin (float_to_price (float_of_string (String.trim (read_line ()))))
   | _ -> 
     Printf.printf "Invalid order type. Please enter Market, Limit, or Margin.\n";
     get_order_type ()
@@ -83,9 +83,11 @@ let place_order_interactive () =
     | InvalidMarket msg ->
       Printf.printf "%s\n" msg
     | InvalidFunds (req, avail) ->
-      Printf.printf "Insufficient funds. Required: $%.2f, Available: $%.2f.\n" req avail
+      Printf.printf "Insufficient funds. Required: $%.2f, Available: $%.2f.\n" (price_to_float req) (price_to_float avail)
     | InvalidShares (req, avail) ->
       Printf.printf "Insufficient shares. Required: %.2f, Available: %.2f.\n" req avail
+    | InvalidPrice msg ->
+      Printf.printf "%s\n" msg
     | NoPosition sec ->
       Printf.printf "You don't own any shares of %s!\n" sec
     | InvalidUser ->

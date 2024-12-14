@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS orders (
   order_type VARCHAR(10) NOT NULL,
   buy_sell VARCHAR(4) NOT NULL,
   quantity DECIMAL(15,2) NOT NULL,
-  price DECIMAL(15,2) NOT NULL,
+  price INTEGER NOT NULL, -- prices are stored in thousandths of a unit
   status VARCHAR(10) DEFAULT 'ACTIVE',
   expiration_time DECIMAL(15,2),
   created_at TIMESTAMPTZ DEFAULT NOW()

@@ -21,35 +21,35 @@ ON CONFLICT (id) DO NOTHING;
 
 -- add some securities with random prices
 INSERT INTO securities (symbol, price, status) VALUES 
-('AAPL', 180.50, 'ACTIVE'),
-('GOOGL', 140.25, 'ACTIVE'),
-('MSFT', 330.75, 'ACTIVE'),
-('TSLA', 250.10, 'ACTIVE'),
-('AMZN', 125.75, 'ACTIVE'),
-('RKLB', 25.00, 'ACTIVE'),
-('META', 300.20, 'ACTIVE');
+('AAPL', 180500, 'ACTIVE'),
+('GOOGL', 140250, 'ACTIVE'),
+('MSFT', 330750, 'ACTIVE'),
+('TSLA', 250100, 'ACTIVE'),
+('AMZN', 125750, 'ACTIVE'),
+('RKLB', 25000, 'ACTIVE'),
+('META', 300200, 'ACTIVE');
 
 -- add some active orders
 INSERT INTO orders (id, user_id, security, order_type, buy_sell, quantity, price, status) VALUES 
 -- Alice's orders
-(1, 6, 'AAPL', 'LIMIT', 'BUY', 10.0, 179.50, 'ACTIVE'), -- 1
-(2, 6, 'GOOGL', 'LIMIT', 'SELL', 5.0, 141.00, 'ACTIVE'), -- 2
+(1, 6, 'AAPL', 'LIMIT', 'BUY', 10.0, 179500, 'ACTIVE'), -- 1
+(2, 6, 'GOOGL', 'LIMIT', 'SELL', 5.0, 141000, 'ACTIVE'), -- 2
 
 -- Bob's orders
-(3, 7, 'AAPL', 'LIMIT', 'SELL', 8.0, 181.00, 'ACTIVE'), -- 3
-(4, 7, 'MSFT', 'LIMIT', 'BUY', 12.0, 329.50, 'ACTIVE'), -- 4
+(3, 7, 'AAPL', 'LIMIT', 'SELL', 8.0, 181000, 'ACTIVE'), -- 3
+(4, 7, 'MSFT', 'LIMIT', 'BUY', 12.0, 329500, 'ACTIVE'), -- 4
 
 -- Charlie's orders
-(5, 8, 'MSFT', 'LIMIT', 'SELL', 15.0, 331.00, 'ACTIVE'), -- 5
-(6, 8, 'GOOGL', 'LIMIT', 'BUY', 7.0, 140.00, 'ACTIVE'), -- 6
+(5, 8, 'MSFT', 'LIMIT', 'SELL', 15.0, 331000, 'ACTIVE'), -- 5
+(6, 8, 'GOOGL', 'LIMIT', 'BUY', 7.0, 140000, 'ACTIVE'), -- 6
 
 -- Diana's orders
-(7, 9, 'TSLA', 'LIMIT', 'BUY', 5.0, 249.00, 'ACTIVE'), -- 7
-(8, 9, 'META', 'LIMIT', 'SELL', 3.0, 305.00, 'ACTIVE'), -- 8
+(7, 9, 'TSLA', 'LIMIT', 'BUY', 5.0, 249000, 'ACTIVE'), -- 7
+(8, 9, 'META', 'LIMIT', 'SELL', 3.0, 305000, 'ACTIVE'), -- 8
 
 -- Eve's orders
-(9, 10, 'AMZN', 'LIMIT', 'SELL', 4.0, 126.00, 'ACTIVE'), -- 9
-(10, 10, 'RKLB', 'LIMIT', 'BUY', 6.0, 25.50, 'ACTIVE'); -- 10
+(9, 10, 'AMZN', 'LIMIT', 'SELL', 4.0, 126000, 'ACTIVE'), -- 9
+(10, 10, 'RKLB', 'LIMIT', 'BUY', 6.0, 255000, 'ACTIVE'); -- 10
 
 -- add some initial positions
 INSERT INTO positions (user_id, security, quantity) VALUES 
@@ -66,6 +66,6 @@ INSERT INTO positions (user_id, security, quantity) VALUES
 
 -- add some sample trades
 INSERT INTO trades (id, buy_order_id, sell_order_id, security, quantity, price) VALUES 
-(1, 1, 3, 'AAPL', 5.0, 180.25),
-(2, 4, 5, 'MSFT', 8.0, 330.50),
-(3, 2, 6,'GOOGL', 2.0, 140.50);
+(1, 1, 3, 'AAPL', 5.0, 180250),
+(2, 4, 5, 'MSFT', 8.0, 330500),
+(3, 2, 6,'GOOGL', 2.0, 140500);

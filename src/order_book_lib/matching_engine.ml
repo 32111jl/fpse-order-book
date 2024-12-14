@@ -5,7 +5,7 @@ open Price
 let get_trade_price (buy_order : db_order) (sell_order : db_order) : price =
   match sell_order.order_type with
   | Market -> (match get_price buy_order with
-    | Some p -> float_to_price p
+    | Some price -> price
     | None -> failwith "Both orders cannot be market orders")
   | Limit { price; _ } | Margin price -> price
 
