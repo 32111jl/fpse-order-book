@@ -307,7 +307,7 @@ let initialize_system () =
   Random.self_init ();
   (* initialize all securities in the database *)
   List.iter (fun security ->
-    ignore (create_security security (get_base_price security))
+    ignore (create_security security (int_of_float (get_base_price security)))
   ) available_securities;
   load_orders_from_db_into_memory ()
 
