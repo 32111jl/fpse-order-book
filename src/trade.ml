@@ -33,3 +33,7 @@ let execute_trade (buy_order : db_order) (sell_order : db_order) : (float * pric
     let _ = update_user_balance sell_order.user_id total_cost in
     (trade_qty, trade_price)
   )
+
+let print_trade (trade : trade) (security : string) =
+  Printf.printf "Trade executed: %.2f units of %s between orders %d and %d at $%s.\n" 
+                trade.qty security trade.buy_order_id trade.sell_order_id (price_to_string trade.price)

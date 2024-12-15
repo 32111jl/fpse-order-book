@@ -193,35 +193,47 @@ let place_order_in_db_and_memory (security : string) (order_type : order_type) (
       (* insert id before adding to memory *)
       let order_with_id = { order with id = Some order_id } in
       (match order_type with
-      | Market -> (* execute trades immediately for market orders *)
-        add_order_to_memory book order_with_id;
-        let trades = match_orders book (create_dynamic_market_conditions security) in
-        
-        List.iter (fun trade ->
-          match (get_order trade.buy_order_id, get_order trade.sell_order_id) with
-          | Ok buy_res, Ok sell_res ->
-            let buy_order = db_result_to_order buy_res security in
-            let sell_order = db_result_to_order sell_res security in
-            (match execute_trade buy_order sell_order with
-            | Ok (_qty, _price) ->
-              print_trade trade security;
-            | Error e -> Printf.printf "Trade execution error: %s\n" e)
-            | _ -> Printf.printf "Error fetching orders for trade.\n"
-        ) trades;
-        let still_active = List.exists (fun o -> o.id = Some order_id) book.orders in
-        if still_active then begin
-          ignore (cancel_order order_id);
-          Printf.printf "Market order could not be fully matched and is now cancelled.\n"
-        end else
-          Printf.printf "Market %s order placed and executed immediately (order ID: %d).\n"
-            (if buy_sell = Buy then "BUY" else "SELL") order_id
-      | Limit { price = _; _ } | Margin _ ->
-        add_order_to_memory book order_with_id;
-        Printf.printf "%s %s order placed: %.2f shares at $%.2f (order ID: %d).\n"
-          (match order_type with Limit _ -> "Limit" | Margin _ -> "Margin" | _ -> "")
-          (if buy_sell = Buy then "BUY" else "SELL") qty 
-          (match get_price order_with_id with Some p -> price_to_float p | None -> 0.0) 
-          order_id)
+      | Market | Limit _ | Margin _ -> (* match orders will do the "cascading" matching/cancellation *)
+      add_order_to_memory book order_with_id;
+      let trades = match_orders book (create_dynamic_market_conditions security) in
+      List.iter (fun trade ->
+        match (get_order trade.buy_order_id, get_order trade.sell_order_id) with
+        | Ok buy_res, Ok sell_res ->
+          let buy_order = db_result_to_order buy_res security in
+          let sell_order = db_result_to_order sell_res security in
+          (match execute_trade buy_order sell_order with
+          | Ok (_qty, _price) ->
+            print_trade trade security;
+          | Error e -> Printf.printf "Trade execution error: %s\n" e)
+        | _ -> Printf.printf "Error fetching orders for trade.\n"
+      ) trades;
+
+      (match order_type with
+        | Market ->
+          let remaining_order = List.find_opt (fun o -> o.id = Some order_id) book.orders in
+          (match remaining_order with
+          | Some unfilled_order ->
+            ignore (cancel_order order_id);
+            Printf.printf "Market order could not be fully matched (%.2f shares remaining) and is now cancelled.\n"
+              unfilled_order.qty
+          | None ->
+            Printf.printf "Market %s order fully executed (order ID: %d).\n"
+              (if buy_sell = Buy then "BUY" else "SELL") order_id)
+        | Limit _ | Margin _ ->
+          let remaining_order = List.find_opt (fun o -> o.id = Some order_id) book.orders in
+          match remaining_order with
+          | Some unfilled_order ->
+            Printf.printf "%s %s order partially filled: %.2f shares remaining at $%.2f (order ID: %d).\n"
+              (match order_type with Limit _ -> "Limit" | Margin _ -> "Margin" | _ -> "")
+              (if buy_sell = Buy then "BUY" else "SELL")
+              unfilled_order.qty
+              (match get_price unfilled_order with Some p -> price_to_float p | None -> 0.0)
+              order_id
+          | None ->
+            Printf.printf "%s %s order fully executed (order ID: %d).\n"
+              (match order_type with Limit _ -> "Limit" | Margin _ -> "Margin" | _ -> "")
+              (if buy_sell = Buy then "BUY" else "SELL")
+              order_id))
     | Error e -> Printf.printf "Error placing order: %s\n" e
   )
 
@@ -353,5 +365,5 @@ let continuous_matching_thread () =
         ) trades
       )
     ) available_securities;
-    Unix.sleepf 0.0005
+    Unix.sleepf 0.001
   done

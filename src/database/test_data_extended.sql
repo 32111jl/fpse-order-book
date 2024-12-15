@@ -49,7 +49,10 @@ INSERT INTO orders (id, user_id, security, order_type, buy_sell, quantity, price
 
 -- Eve's orders
 (9, 10, 'AMZN', 'LIMIT', 'SELL', 4.0, 126000, 'ACTIVE'), -- 9
-(10, 10, 'RKLB', 'LIMIT', 'BUY', 6.0, 255000, 'ACTIVE'); -- 10
+(10, 10, 'RKLB', 'LIMIT', 'BUY', 6.0, 255000, 'ACTIVE'), -- 10
+
+(11, 10, 'AAPL', 'LIMIT', 'SELL', 0.5, 180000, 'ACTIVE'), -- 11
+(12, 10, 'AAPL', 'LIMIT', 'SELL', 0.5, 180500, 'ACTIVE'); -- 12
 
 -- add some initial positions
 INSERT INTO positions (user_id, security, quantity) VALUES 

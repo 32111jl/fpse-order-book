@@ -118,7 +118,3 @@ let print_orders (book : order_book) =
     in
     Printf.printf "Price: $%s, Qty: %.2f\n" price_str order.qty
   ) asks
-
-let print_trade (trade : trade) (security : string) =
-  Printf.printf "Trade executed: %.2f units of %s between orders %d and %d at $%s.\n" 
-                trade.qty security trade.buy_order_id trade.sell_order_id (price_to_string trade.price)
