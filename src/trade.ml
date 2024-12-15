@@ -9,10 +9,11 @@ let execute_trade (buy_order : db_order) (sell_order : db_order) : (float * pric
   let sell_id = unwrap_id sell_order.id in
   let trade_qty = Float.min buy_order.qty sell_order.qty in
   let trade_price = get_trade_price buy_order sell_order in
-  let total_cost = price_to_float trade_price *. trade_qty in
+  let trade_price_float = price_to_float trade_price in
+  let total_cost = trade_price_float *. trade_qty in
     
   with_transaction (fun _conn ->
-  let _ = record_trade ~buy_order_id:buy_id ~sell_order_id:sell_id ~security:buy_order.security ~qty:trade_qty ~price:(int_of_float (price_to_float trade_price)) in
+  let _ = record_trade ~buy_order_id:buy_id ~sell_order_id:sell_id ~security:buy_order.security ~qty:trade_qty ~price:trade_price in
     
     let buy_qty_remaining = buy_order.qty -. trade_qty in
     let sell_qty_remaining = sell_order.qty -. trade_qty in

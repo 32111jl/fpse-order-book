@@ -117,7 +117,7 @@ let create_order_in_db (user_id : int) (security : string) (order_type : Order_t
     order_type_to_string order_type;
     buy_sell_to_string buy_sell;
     string_of_float qty;
-    price_to_string price;
+    price_to_db_string price;
     expiration_time
   |] in
   execute_query query params
@@ -202,7 +202,7 @@ let record_trade ~buy_order_id ~sell_order_id ~security ~qty ~(price : price) =
     string_of_int sell_order_id; 
     security; 
     string_of_float qty; 
-    price_to_string price
+    price_to_db_string price
   |]
 
 let get_trade_history (user_id : int) =
@@ -220,7 +220,7 @@ let get_trades_by_security (security : string) =
 (* security operations *)
 let create_security (symbol : string) (price : price) = 
   let query = "INSERT INTO securities (symbol, price) VALUES ($1, $2)" in
-  execute_query query [| symbol; price_to_string price |]
+  execute_query query [| symbol; price_to_db_string price |]
 
 let update_security_status (symbol : string) (status : string) = 
   let query = "UPDATE securities SET status = $1 WHERE symbol = $2" in

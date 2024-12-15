@@ -102,20 +102,19 @@ let validate_funds_and_shares (order_book : order_book) (user_id : int) (securit
   match get_user_balance user_id with
   | None -> InvalidUser
   | Some balance_float ->
-    let balance = float_to_price balance_float in
-    let cost = match order_type with
+    let cost_float = match order_type with
       | Market ->
         if buy_sell = Buy then
           match get_best_ask order_book with
-          | Some price -> price * int_of_float qty
-          | None -> 0
-        else 0
-      | Limit { price; _ } -> if buy_sell = Buy then price * int_of_float qty else 0
-      | Margin price -> if buy_sell = Buy then price * int_of_float (0.5 *. qty) else 0
+          | Some price -> price_to_float price *. qty
+          | None -> 0.0
+        else 0.0
+      | Limit { price; _ } -> if buy_sell = Buy then price_to_float price *. qty else 0.0
+      | Margin price -> if buy_sell = Buy then price_to_float price *. 0.5 *. qty else 0.0
     in
     (* check if user has enough money to place the order *)
-    if buy_sell = Buy && cost > balance then
-      InvalidFunds (cost, balance)
+    if buy_sell = Buy && cost_float > balance_float then
+      InvalidFunds (float_to_price cost_float, float_to_price balance_float)
     else if buy_sell = Sell then
       (* check if user has enough shares to place the order *)
       match get_positions_by_user user_id with
@@ -177,8 +176,8 @@ let cancel_order (order_id : int) =
 let db_result_to_order (result : Postgresql.result) (security : string) : db_order =
   let order_id = int_of_string (result#getvalue 0 0) in
   let user_id = int_of_string (result#getvalue 0 1) in
-  let price_float = float_of_string (result#getvalue 0 6) in
-  let order_type = string_to_order_type (result#getvalue 0 3) (float_to_price price_float) in
+  let price_float = int_of_string (result#getvalue 0 6) in
+  let order_type = string_to_order_type (result#getvalue 0 3) price_float in
   let buy_sell = string_to_buy_sell (result#getvalue 0 4) in
   let qty = float_of_string (result#getvalue 0 5) in
   { id = Some order_id; user_id; security; order_type; buy_sell; qty }
@@ -187,7 +186,8 @@ let place_order_in_db_and_memory (security : string) (order_type : order_type) (
   sync_ob_operation (fun () ->
     let book = get_or_create_order_book security in
     let order = { id = None; user_id; security; order_type; buy_sell; qty } in
-    match create_order_in_db user_id security order_type buy_sell qty (match get_price order with Some p -> p | None -> 0) with
+    let price = match get_price order with Some p -> p | None -> 0 in
+    match create_order_in_db user_id security order_type buy_sell qty price with
     | Ok result ->
       let order_id = int_of_string (result#getvalue 0 0) in
       (* insert id before adding to memory *)

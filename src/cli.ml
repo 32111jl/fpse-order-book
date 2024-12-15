@@ -87,7 +87,7 @@ let place_order_interactive () =
     | InvalidShares (req, avail) ->
       Printf.printf "Insufficient shares. Required: %.2f, Available: %.2f.\n" req avail
     | InvalidPrice msg ->
-      Printf.printf "%s\n" msg
+      Printf.printf "You cannot place an order at this price: %s.\n" msg
     | NoPosition sec ->
       Printf.printf "You don't own any shares of %s!\n" sec
     | InvalidUser ->
