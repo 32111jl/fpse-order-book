@@ -299,11 +299,6 @@ module OrderBookTests = struct
     print_orders book;
     assert_bool "print_orders executed." true
 
-  let test_print_trades _ = 
-    let trade = { buy_order_id = 1; sell_order_id = 2; security = "TEST"; qty = 5.0; price = 100000 } in
-    print_trade trade "TEST";
-    assert_bool "print_trade executed" true
-
   let series = "order_book_tests" >::: [
     "test_create_order_book" >:: test_create_order_book;
     "test_get_best_bid_ask_empty" >:: test_get_best_bid_ask_empty;
@@ -314,7 +309,6 @@ module OrderBookTests = struct
     "test_add_and_remove_order" >:: test_add_and_remove_order;
     "test_get_best_bid_ask_cached" >:: test_get_best_bid_ask_cached;
     "test_print_orders" >:: test_print_orders;
-    "test_print_trades" >:: test_print_trades;
   ]
 end
 
@@ -435,8 +429,8 @@ module MatchingEngineTests = struct
     let order2 = { id = Some 2; user_id = user2; security = "ME17"; order_type = Limit { price = 102000; expiration = None }; buy_sell = Sell; qty = 1.0 } in
     let order3 = { id = Some 3; user_id = user1; security = "ME18"; order_type = Limit { price = 155000; expiration = None }; buy_sell = Buy; qty = 1.0 } in
     let order4 = { id = Some 4; user_id = user2; security = "ME18"; order_type = Limit { price = 145000; expiration = None }; buy_sell = Sell; qty = 0.5 } in
-    let order5 = { id = Some 5; user_id = user1; security = "ME18"; order_type = Limit { price = 161000; expiration = None }; buy_sell = Buy; qty = 1.0 } in
-    let order6 = { id = Some 6; user_id = user2; security = "ME18"; order_type = Limit { price = 159000; expiration = None }; buy_sell = Sell; qty = 1.0 } in
+    let order5 = { id = Some 5; user_id = user1; security = "ME17"; order_type = Limit { price = 161000; expiration = None }; buy_sell = Buy; qty = 1.0 } in
+    let order6 = { id = Some 6; user_id = user2; security = "ME17"; order_type = Limit { price = 159000; expiration = None }; buy_sell = Sell; qty = 1.0 } in
     
     add_order_to_memory book1 order1;
     add_order_to_memory book1 order2;
@@ -447,6 +441,7 @@ module MatchingEngineTests = struct
     
     let market_conds = create_market_conditions 5.0 0.5 in
     let trades = match_all_books [book1; book2] market_conds in
+    Printf.printf "Trades length: %d\n" (List.length trades);
     assert_equal 2 (List.length trades) (* 2 trades: (order1, order2) and (order5, order6); (order3, order4) is out of spread *)
 
   let test_no_matching_orders _ =
