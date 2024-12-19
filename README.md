@@ -15,14 +15,28 @@ This project is a high-performance order book application developed in OCaml. It
 - OCaml, Core, PostgreSQL
 - Bisect_ppx (for testing)
 
+#### **Environment Variables**
+To avoid hardcoding sensitive information like the **DATABASE_URL**, you should export it in your terminal before running the application. Run the following command to set the environment variable:
+
+`export DATABASE_URL="postgresql://postgres.cvyksmvkqhefdrlgbqxf:4gKZKMsiZmw7R3Be@aws-0-us-east-1.pooler.supabase.com:6543/postgres"`
+
 ##### Building, Running the Application
 - clone the repo - `git clone https://github.com/32111jl/fpse-order-book.git`
 - install dependencies - `opam install . --deps-only`
 - compile the project - `dune build`
+- setup the database - `psql -h aws-0-us-east-1.pooler.supabase.com -p 6543 -d postgres -U postgres.cvyksmvkqhefdrlgbqxf -f src/database/test_data_extended.sql`
+- you will be prompted to enter the password. Use the following credential: `4gKZKMsiZmw7R3Be`
+- run the application - `dune exec _build/install/default/bin/order_book_app` 
+
+##### **Test Setup**
+To set up the test environment, initialize the database with the following command:
+`psql -h aws-0-us-east-1.pooler.supabase.com -p 6543 -d postgres -U postgres.cvyksmvkqhefdrlgbqxf -f tests/test_db.sql`
+- you will be prompted to enter the password. Use the following credential: `4gKZKMsiZmw7R3Be`
+
+
+##### Local PostgreSQL database
 - create the database - `psql -U ob1 -d order_book -f database/schema.sql` then `psql -U ob1 -d order_book -f database/test_data.sql`
   - password is `123` if prompted
-- run the application - `dune exec _build/install/default/bin/order_book_app`
-
 Note that to test, the database command becomes `psql -U ob1 -d order_book -f tests/test_db.sql`.
 
 ### Project Timeline

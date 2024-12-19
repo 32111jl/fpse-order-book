@@ -1,15 +1,23 @@
+open Market_conditions
 open Order_book
 open Order_types
 open Price
 
-let can_match (buy_order : db_order) (sell_order : db_order) : bool =
+let can_match 
+    (buy_order : db_order) 
+    (sell_order : db_order) 
+    (market_conditions : market_conditions) 
+    : bool =
   match buy_order.order_type, sell_order.order_type with
   | Market, _ | _, Market -> true
   | Limit { price = bid_price; _ }, Limit { price = ask_price; _ }
   | Limit { price = bid_price; _ }, Margin ask_price
   | Margin bid_price, Limit { price = ask_price; _ }
   | Margin bid_price, Margin ask_price ->
-    compare_price bid_price ask_price >= 0
+      let spread_result = check_spread market_conditions ask_price bid_price in
+      (match spread_result with
+       | ValidPrice -> true
+       | _ -> false)
 
 let get_trade_price (buy_order : db_order) (sell_order : db_order) : price =
   match sell_order.order_type with
@@ -40,12 +48,14 @@ let update_order_book (order_book : order_book) (order : db_order) (best_match :
     | Sell -> updated_matches @ (get_asks order_book));
   remove_order_from_memory order_book (-1)
 
-let process_match (order_book : order_book) (order : db_order) (best_match : db_order) (remaining_qty : float) (potential_matches : db_order list) : trade option * float =
-  let can_match = match order.buy_sell with
-    | Buy -> can_match order best_match
-    | Sell -> can_match best_match order
+let process_match (order_book : order_book) (order : db_order) (best_match : db_order) 
+    (remaining_qty : float) (potential_matches : db_order list) (market_conditions : market_conditions) 
+    : trade option * float =
+  let can_match_result = match order.buy_sell with
+    | Buy -> can_match order best_match market_conditions
+    | Sell -> can_match best_match order market_conditions
   in
-  if can_match then
+  if can_match_result then
     let trade_price = match order.buy_sell with
       | Buy -> get_trade_price order best_match
       | Sell -> get_trade_price best_match order
@@ -57,42 +67,40 @@ let process_match (order_book : order_book) (order : db_order) (best_match : db_
   else
     None, remaining_qty
 
-let rec match_aux acc remaining_qty order order_book =
-  if remaining_qty <= 0.0 then acc
-  else
-    let potential_matches = match order.buy_sell with
-      | Buy -> get_asks order_book
-      | Sell -> get_bids order_book
-    in
-    match potential_matches with
-    | [] -> acc
-    | best_match :: _ ->
-      let trade_opt, new_remaining_qty = 
-        process_match order_book order best_match remaining_qty potential_matches
-      in
-      match trade_opt with
-      | Some trade -> match_aux (trade :: acc) new_remaining_qty order order_book
-      | None -> acc
-
-(* private helper to attempt to match orders - returns a list of trades *)
-let try_match_orders order_book =
+let try_match_orders (order_book : order_book) (market_conditions : market_conditions) : trade list =
   let bids = get_bids order_book in
   let asks = get_asks order_book in
-  match bids, asks with
-  | [], _ | _, [] -> []
-  | best_bid :: _, best_ask :: _ ->
-    if can_match best_bid best_ask then
-      match_aux [] best_bid.qty best_bid order_book
-    else []
+  let rec match_bids bids asks acc =
+    match bids, asks with
+    | [], _ | _, [] -> acc
+    | bid :: rest_bids, ask :: rest_asks ->
+        if can_match bid ask market_conditions then
+          let trade_qty = Float.min bid.qty ask.qty in
+          let trade_price = get_trade_price bid ask in
+          let trade = create_trade bid ask trade_qty trade_price in
+          (* Update the quantities in the orders *)
+          let updated_bid = { bid with qty = bid.qty -. trade_qty } in
+          let updated_ask = { ask with qty = ask.qty -. trade_qty } in
+          (* Update the order book *)
+          order_book.orders <- 
+            (List.filter (fun o -> o.id <> bid.id && o.id <> ask.id) order_book.orders) @
+            (if updated_bid.qty > 0.0 then [updated_bid] else []) @
+            (if updated_ask.qty > 0.0 then [updated_ask] else []);
+          match_bids (if updated_bid.qty > 0.0 then updated_bid :: rest_bids else rest_bids) 
+                     (if updated_ask.qty > 0.0 then updated_ask :: rest_asks else rest_asks) 
+                     (trade :: acc)
+        else
+          match_bids rest_bids asks acc
+  in
+  match_bids bids asks []
 
-let match_orders (order_book : order_book) (_market_conditions : market_conditions) : trade list =
+let match_orders (order_book : order_book) (market_conditions : market_conditions) : trade list =
   let rec match_all_possible acc =
-    let new_trades = try_match_orders order_book in
+    let new_trades = try_match_orders order_book market_conditions in
     if new_trades = [] then acc
     else match_all_possible (new_trades @ acc)
   in
   List.rev (match_all_possible [])
-
 
 let match_all_books (order_books : order_book list) (market_conditions : market_conditions) : trade list =
   List.concat (List.map (fun ob -> match_orders ob market_conditions) order_books)

@@ -439,7 +439,7 @@ module MatchingEngineTests = struct
     add_order_to_memory book1 order5;
     add_order_to_memory book1 order6;
     
-    let market_conds = create_market_conditions 5.0 0.5 in
+    let market_conds = create_market_conditions 0.05 0.5 in
     let trades = match_all_books [book1; book2] market_conds in
     Printf.printf "Trades length: %d\n" (List.length trades);
     assert_equal 2 (List.length trades) (* 2 trades: (order1, order2) and (order5, order6); (order3, order4) is out of spread *)
@@ -447,7 +447,7 @@ module MatchingEngineTests = struct
   let test_no_matching_orders _ =
     ignore (create_security "ME19" 100000);
     let book = create_order_book "ME19" in
-    let market_conds = create_market_conditions 2.0 0.5 in
+    let market_conds = create_market_conditions 0.02 0.5 in
     let user1 = create_user_in_db "UserME19" 1000.0 in
     let user2 = create_user_in_db "UserME20" 1000.0 in
     
