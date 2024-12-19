@@ -3,7 +3,7 @@ opam-version: "2.0"
 synopsis: "An OCaml library for a performant order book"
 description:
   "A OCaml library for managing and processing order books in financial trading systems."
-maintainer: [""]
+maintainer: ["jliu299@jh.edu" "nliu22@jh.edu"]
 authors: ["Jonathan Liu" "Nicolas Liu"]
 depends: [
   "dune" {>= "3.16"}

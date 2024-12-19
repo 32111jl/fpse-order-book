@@ -9,6 +9,10 @@ open Utils.Order_sync
 open Utils.Securities
 open Trade
 
+let init_mutex = Mutex.create ()
+let init_cond = Condition.create ()
+let initial_processing_done = ref false
+
 (* This module acts as a bridge between the CLI (user interaction) and underlying order book logic.
    This logic includes database operations (fetching, validation, updating the in-memory order book, etc.). *)
 
@@ -345,6 +349,34 @@ let create_user (curr_user_id : int option ref) (name : string) =
 
 (* continuously match orders as long as there are any *)
 let continuous_matching_thread () =
+  (* Process and settle all existing orders *)
+  List.iter (fun security ->
+    sync_ob_operation (fun () ->
+      let ob = get_or_create_order_book security in
+      let market_conditions = create_dynamic_market_conditions security in
+      let trades = match_orders ob market_conditions in
+      List.iter (fun trade ->
+        match (get_order trade.buy_order_id, get_order trade.sell_order_id) with
+        | Ok buy_res, Ok sell_res ->
+          let buy_order = db_result_to_order buy_res security in
+          let sell_order = db_result_to_order sell_res security in
+          (match execute_trade buy_order sell_order with
+          | Ok (_qty, _price) ->
+            print_trade trade security
+          | Error e ->
+            Printf.printf "Trade execution error: %s\n" e)
+        | _ -> Printf.printf "Error fetching orders for trade.\n"
+      ) trades
+    )
+  ) available_securities;
+
+  (* Signal that initial processing is done *)
+  Mutex.lock init_mutex;
+  initial_processing_done := true;
+  Condition.signal init_cond;
+  Mutex.unlock init_mutex;
+
+  (* Continue with the regular matching loop *)
   while true do
     List.iter (fun security ->
       sync_ob_operation (fun () ->
@@ -358,12 +390,12 @@ let continuous_matching_thread () =
             let sell_order = db_result_to_order sell_res security in
             (match execute_trade buy_order sell_order with
             | Ok (_qty, _price) ->
-              print_trade trade security;
+              print_trade trade security
             | Error e ->
               Printf.printf "Trade execution error: %s\n" e)
           | _ -> Printf.printf "Error fetching orders for trade.\n"
         ) trades
       )
     ) available_securities;
-    Unix.sleepf 0.001
+    Thread.delay 1.0  (* Adjust delay as needed *)
   done

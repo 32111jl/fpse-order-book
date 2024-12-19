@@ -190,9 +190,21 @@ and trading_menu user_name user_id =
     Printf.printf "Invalid option. Please type a valid number.\n";
     trading_menu user_name user_id
 
-let run_cli () = 
+let run_cli () =
+  Printf.printf "Loading Trading System...\n%!";
   initialize_system ();
+  
+  (* Start the matching thread *)
   let _ = Thread.create continuous_matching_thread () in
+  
+  (* Wait until initial processing is done *)
+  Mutex.lock init_mutex;
+  while not !initial_processing_done do
+    Condition.wait init_cond init_mutex
+  done;
+  Mutex.unlock init_mutex;
+  
+  (* Now, start the CLI interaction *)
   login_menu ()
 
 (* run as executable *)

@@ -218,14 +218,9 @@ let get_trades_by_security (security : string) =
 
 
 (* security operations *)
-let create_security symbol price =
-  let query = "
-    INSERT INTO securities (symbol, price, status)
-    VALUES ($1, $2, 'ACTIVE')
-    ON CONFLICT (symbol) DO NOTHING;
-  " in
-  let params = [| symbol; string_of_int price |] in
-  execute_query query params
+let create_security (symbol : string) (price : price) = 
+  let query = "INSERT INTO securities (symbol, price) VALUES ($1, $2)" in
+  execute_query query [| symbol; price_to_db_string price |]
 
 let update_security_status (symbol : string) (status : string) = 
   let query = "UPDATE securities SET status = $1 WHERE symbol = $2" in

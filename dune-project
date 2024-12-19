@@ -1,7 +1,7 @@
 (lang dune 3.16)
  (generate_opam_files true)
  (authors "Jonathan Liu" "Nicolas Liu")
- (maintainers "")
+ (maintainers "jliu299@jh.edu" "nliu22@jh.edu")
  (package
   (name fpse-order-book) ; put in your own project name here
   (allow_empty)
