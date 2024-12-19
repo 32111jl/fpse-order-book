@@ -12,4 +12,6 @@
    (core (>= 0.17.1)) ; `opam list core` will display which version of core you have
    (bisect_ppx (>= 2.8.3)) ; for code coverage analysis
    (postgresql (>= 4.10.0)) ; for postgresql
+   (qcheck (>= 0.22));
+   (core_unix (>= 0.17.0)) ;
 ))

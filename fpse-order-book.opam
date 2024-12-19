@@ -11,6 +11,8 @@ depends: [
   "core" {>= "0.17.1"}
   "bisect_ppx" {>= "2.8.3"}
   "postgresql" {>= "4.10.0"}
+  "qcheck" {>= "0.22"}
+  "core_unix" {>= "0.17.0"}
   "odoc" {with-doc}
 ]
 build: [
